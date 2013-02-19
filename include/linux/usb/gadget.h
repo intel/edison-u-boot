@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <linux/list.h>
+#include <errno.h>
 
 struct usb_ep;
 
@@ -95,6 +96,7 @@ struct usb_request {
 
 	int			status;
 	unsigned		actual;
+	unsigned		stream_id;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -145,6 +147,8 @@ struct usb_ep {
 	const struct usb_ep_ops	*ops;
 	struct list_head	ep_list;
 	unsigned		maxpacket:16;
+	unsigned		max_streams:16;
+	unsigned		maxburst:16;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -412,7 +416,6 @@ struct usb_gadget_ops {
 
 struct device {
 	void		*driver_data;	/* data private to the driver */
-	void            *device_data;   /* data private to the device */
 };
 
 /**
@@ -481,11 +484,6 @@ static inline void set_gadget_data(struct usb_gadget *gadget, void *data)
 static inline void *get_gadget_data(struct usb_gadget *gadget)
 {
 	return gadget->dev.driver_data;
-}
-
-static inline struct usb_gadget *dev_to_usb_gadget(struct device *dev)
-{
-	return container_of(dev, struct usb_gadget, dev);
 }
 
 /* iterates the non-control endpoints; 'tmp' is a struct usb_ep pointer */
@@ -860,5 +858,10 @@ extern struct usb_ep *usb_ep_autoconfig(struct usb_gadget *,
 extern void usb_ep_autoconfig_reset(struct usb_gadget *);
 
 extern int usb_gadget_handle_interrupts(void);
+
+extern int usb_gadget_init_udc(void);
+extern void usb_gadget_exit_udc(void);
+extern int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
+		int (*bind)(struct usb_gadget *));
 
 #endif	/* __LINUX_USB_GADGET_H */
