@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 Intel
+/* Copyright (c) 2012 Intel 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -55,7 +55,7 @@ struct sfi_apic_table_entry {
 	u64 phys_addr;  /* phy base addr for APIC reg */
 }__attribute__((packed));
 
-struct sfi_timer_table_entry {
+struct sfi_timer_table_entry { 
 	u64 phys_addr;  /* phy base addr for the timer */
 	u32 freq_hz;    /* in HZ */
 	u32 irq;
@@ -102,7 +102,7 @@ void sfi_parse_mtmr(void);
 struct sfi_timer_table_entry *sfi_get_mtmr(int hint);
 void fill_memranges_from_e820(struct sysinfo_t *info);
 
-#ifdef CONFIG_X86_IO_APIC
+#ifdef CONFIG_X86_IO_APIC 
 int sfi_parse_ioapic(void);
 #endif /* CONFIG_X86_IO_APIC */
 
@@ -112,6 +112,7 @@ unsigned long long sfi_get_max_usable_ram(struct sysinfo_t *info);
 
 #ifdef CONFIG_SFI
 extern phys_size_t sfi_get_ram_size(void);
+extern void sfi_setup_e820(struct boot_params *bp);
 #endif
 
 #endif /* __SFI_H__ */
