@@ -299,7 +299,7 @@ u64 __attribute__((no_instrument_function)) get_ticks(void)
 }
 
 /* Get the speed of the TSC timer in MHz */
-unsigned __attribute__((no_instrument_function)) long get_tbclk_mhz(void)
+unsigned __weak __attribute__((no_instrument_function)) long get_tbclk_mhz(void)
 {
 	unsigned long fast_calibrate;
 
