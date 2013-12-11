@@ -5,7 +5,9 @@
  */
 
 #include <common.h>
+#ifdef CONFIG_GENERATE_SFI_TABLE
 #include <asm/sfi.h>
+#endif
 #include <asm/mpspec.h>
 #include <asm/tables.h>
 #include <asm/acpi_table.h>
