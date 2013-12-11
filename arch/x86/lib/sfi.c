@@ -1,154 +1,163 @@
-/*
- * Copyright (c) 2015 Google, Inc
- * Written by Simon Glass <sjg@chromium.org>
- *
- * SPDX-License-Identifier:	GPL-2.0+
- */
-
-/*
- * Intel Simple Firmware Interface (SFI)
- *
- * Yet another way to pass information to the Linux kernel.
- *
- * See https://simplefirmware.org/ for details
- */
-
 #include <common.h>
-#include <cpu.h>
-#include <dm.h>
-#include <asm/cpu.h>
-#include <asm/ioapic.h>
+#include <asm/bootparam.h>
 #include <asm/sfi.h>
-#include <asm/tables.h>
-#include <dm/uclass-internal.h>
 
-struct table_info {
-	u32 base;
-	int ptr;
-	u32 entry_start;
-	u64 table[SFI_TABLE_MAX_ENTRIES];
-	int count;
-};
+#define SFI_BASE_ADDR		0x000E0000
+#define SFI_LENGTH		0x00020000
+#define SFI_TABLE_LENGTH	16
 
-static void *get_entry_start(struct table_info *tab)
+static int sfi_table_check(struct sfi_table_header *sbh)
 {
-	if (tab->count == SFI_TABLE_MAX_ENTRIES)
-		return NULL;
-	tab->entry_start = tab->base + tab->ptr;
-	tab->table[tab->count] = tab->entry_start;
-	tab->entry_start += sizeof(struct sfi_table_header);
-
-	return (void *)tab->entry_start;
-}
-
-static void finish_table(struct table_info *tab, const char *sig, void *entry)
-{
-	struct sfi_table_header *hdr;
-
-	hdr = (struct sfi_table_header *)(tab->base + tab->ptr);
-	strcpy(hdr->sig, sig);
-	hdr->len = sizeof(*hdr) + ((ulong)entry - tab->entry_start);
-	hdr->rev = 1;
-	strncpy(hdr->oem_id, "U-Boot", SFI_OEM_ID_SIZE);
-	strncpy(hdr->oem_table_id, "Table v1", SFI_OEM_TABLE_ID_SIZE);
-	hdr->csum = 0;
-	hdr->csum = table_compute_checksum(hdr, hdr->len);
-	tab->ptr += hdr->len;
-	tab->ptr = ALIGN(tab->ptr, 16);
-	tab->count++;
-}
-
-static int sfi_write_system_header(struct table_info *tab)
-{
-	u64 *entry = get_entry_start(tab);
+	char chksum = 0;
+	char *pos = (char *)sbh;
 	int i;
 
-	if (!entry)
-		return -ENOSPC;
+	if (sbh->length < SFI_TABLE_LENGTH)
+		return -1;
 
-	for (i = 0; i < tab->count; i++)
-		*entry++ = tab->table[i];
-	finish_table(tab, SFI_SIG_SYST, entry);
+	if (sbh->length > SFI_LENGTH)
+		return -1;
 
-	return 0;
+	for (i = 0; i < sbh->length; i++)
+		chksum += *pos++;
+
+	if (chksum)
+		printf("sfi: Invalid checksum\n");
+
+	/* checksum is ok if zero */
+	return chksum;
 }
 
-static int sfi_write_cpus(struct table_info *tab)
+static unsigned long sfi_search_mmap(void)
 {
-	struct sfi_cpu_table_entry *entry = get_entry_start(tab);
-	struct udevice *dev;
-	int count = 0;
+	u32 i = 0;
+	u32 *pos = (u32 *)SFI_BASE_ADDR;
+	u32 *end = (u32 *)(SFI_BASE_ADDR + SFI_LENGTH);
+	struct sfi_table_header *sbh;
+	struct sfi_table *sb;
+	u32 sys_entry_cnt = 0;
 
-	if (!entry)
-		return -ENOSPC;
-
-	for (uclass_find_first_device(UCLASS_CPU, &dev);
-	     dev;
-	     uclass_find_next_device(&dev)) {
-		struct cpu_platdata *plat = dev_get_parent_platdata(dev);
-
-		if (!device_active(dev))
-			continue;
-		entry->apic_id = plat->cpu_id;
-		entry++;
-		count++;
+	/* Find SYST table */
+	for (; pos < end; pos += 4) {
+		if (*pos == SFI_SYST_MAGIC) {
+			if (!sfi_table_check((struct sfi_table_header *)pos))
+				break;
+		}
 	}
 
-	/* Omit the table if there is only one CPU */
-	if (count > 1)
-		finish_table(tab, SFI_SIG_CPUS, entry);
+	if (pos >= end) {
+		printf("failed to locate SFI SYST table\n");
+		return 0;
+	}
+
+	/* map table pointers */
+	sb = (struct sfi_table *)pos;
+	sbh = (struct sfi_table_header *)sb;
+
+	sys_entry_cnt = (sbh->length - sizeof(struct sfi_table_header)) >> 3;
+
+	/* Search through each SYST entry for MMAP table */
+	for (i = 0; i < sys_entry_cnt; i++) {
+		sbh = (struct sfi_table_header *)sb->entry[i].low;
+		if (*(u32 *)sbh->signature == SFI_MMAP_MAGIC) {
+			if (!sfi_table_check((struct sfi_table_header *)sbh))
+				return (unsigned long) sbh;
+		}
+	}
 
 	return 0;
 }
 
-static int sfi_write_apic(struct table_info *tab)
+void sfi_setup_e820(struct boot_params *bp)
 {
-	struct sfi_apic_table_entry *entry = get_entry_start(tab);
+	struct sfi_table *sb;
+	struct sfi_mem_entry *mentry;
+	unsigned long long start, end, size;
+	int i, num, type, total;
 
-	if (!entry)
-		return -ENOSPC;
+	bp->e820_entries = 0;
+	total = 0;
 
-	entry->phys_addr = IO_APIC_ADDR;
-	entry++;
-	finish_table(tab, SFI_SIG_APIC, entry);
+	/* search for sfi mmap table */
+	sb = (struct sfi_table *)sfi_search_mmap();
+	if (!sb) {
+		printf("failed to locate SFI MMAP table\n");
+		return;
+	}
+	printf("will use sfi mmap table for e820 table\n");
+	num = SFI_GET_ENTRY_NUM(sb, sfi_mem_entry);
+	mentry = (struct sfi_mem_entry *)sb->pentry;
 
-	return 0;
+	for (i = 0; i < num; i++) {
+		start = mentry->phy_start;
+		size = mentry->pages << 12;
+		end = start + size;
+
+		if (start > end)
+			continue;
+
+		/* translate SFI mmap type to E820 map type */
+		switch (mentry->type) {
+		case SFI_MEM_CONV:
+			type = E820_RAM;
+			break;
+		case SFI_MEM_UNUSABLE:
+		case SFI_RUNTIME_SERVICE_DATA:
+			mentry++;
+			continue;
+		default:
+			type = E820_RESERVED;
+		}
+
+		if (total == E820MAX)
+			break;
+		bp->e820_map[total].addr = start;
+		bp->e820_map[total].size = size;
+		bp->e820_map[total++].type = type;
+
+		mentry++;
+	}
+
+	bp->e820_entries = total;
 }
 
-static int sfi_write_xsdt(struct table_info *tab)
+phys_size_t sfi_get_ram_size(void)
 {
-	struct sfi_xsdt_header *entry = get_entry_start(tab);
+	struct sfi_table *sb;
+	struct sfi_mem_entry *mentry;
+	unsigned long long start, end, size;
+	int i, num;
+	phys_size_t ram = 0;
 
-	if (!entry)
-		return -ENOSPC;
+	/* search for sfi mmap table */
+	sb = (struct sfi_table *)sfi_search_mmap();
+	if (!sb) {
+		printf("failed to locate SFI MMAP table\n");
+		return 0;
+	}
+	printf("will use sfi mmap table for e820 table\n");
+	num = SFI_GET_ENTRY_NUM(sb, sfi_mem_entry);
+	mentry = (struct sfi_mem_entry *)sb->pentry;
 
-	entry->oem_revision = 1;
-	entry->creator_id = 1;
-	entry->creator_revision = 1;
-	entry++;
-	finish_table(tab, SFI_SIG_XSDT, entry);
+	for (i = 0; i < num; i++, mentry++) {
+		if (mentry->type != SFI_MEM_CONV)
+			continue;
 
-	return 0;
-}
+		start = mentry->phy_start;
+		size = mentry->pages << 12;
+		end = start + size;
 
-u32 write_sfi_table(u32 base)
-{
-	struct table_info table;
+		if (start > end)
+			continue;
 
-	table.base = base;
-	table.ptr = 0;
-	table.count = 0;
-	sfi_write_cpus(&table);
-	sfi_write_apic(&table);
+		if (ram < end)
+			ram = end;
+	}
 
-	/*
-	 * The SFI specification marks the XSDT table as option, but Linux 4.0
-	 * crashes on start-up when it is not provided.
-	 */
-	sfi_write_xsdt(&table);
+	/* round up to 512mb */
+	ram = (ram + (512 * 1024 * 1024 - 1)) & ~(512 * 1024 * 1024 - 1);
 
-	/* Finally, write out the system header which points to the others */
-	sfi_write_system_header(&table);
+	printf("ram size %llu\n", ram);
 
-	return base + table.ptr;
+	return ram;
 }
