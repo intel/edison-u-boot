@@ -1,0 +1,23 @@
+if TARGET_EDISON
+
+config SYS_BOARD
+	default "edison"
+
+config SYS_VENDOR
+	default "intel"
+
+config SYS_SOC
+	default "tangier"
+
+config SYS_CONFIG_NAME
+	default "edison"
+
+config SYS_TEXT_BASE
+	default 0x1101000
+
+config BOARD_SPECIFIC_OPTIONS # dummy
+	def_bool y
+	select INTEL_SCU
+	select INTEL_TANGIER
+
+endif

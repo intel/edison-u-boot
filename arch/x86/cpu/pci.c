@@ -48,7 +48,7 @@ __weak int board_pci_post_scan(struct pci_controller *hose)
 	return 0;
 }
 
-void pci_init_board(void)
+__weak void pci_init_board(void)
 {
 	struct pci_controller *hose = &x86_hose;
 
