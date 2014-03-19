@@ -311,4 +311,10 @@ config XILINX_UARTLITE
 	  If you have a Xilinx based board and want to use the uartlite
 	  serial ports, say Y to this option. If unsure, say N.
 
+config TANGIER_SERIAL
+	bool "Support for serial port on the Intel Tangier SoC"
+
+config SYS_TNG_SERIAL2
+	bool "Use Intel Tangier serial port 2"
+
 endmenu
