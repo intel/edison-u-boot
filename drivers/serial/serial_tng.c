@@ -20,43 +20,35 @@
 
 #include <common.h>
 #include <linux/compiler.h>
-#include <asm/cpuid.h>
 
 #include <serial.h>
 
 #define cpu_relax() asm volatile("rep; nop")
 
-//static int default_serial_base = 0xffa28180;  /* UART2_BASE */
-/*
- * UART0_BASE: 0xffa28080
- * UART1_BASE: 0xffa28100
- * UART2_BASE: 0xffa28180
- */
-
-#define UART_GLOBAL 	0xff010000
+#define UART_GLOBAL	0xff010000
 
 #define UART_OFFSET	0x80
 
 #define SERIAL_BASE_ADDR (UART_GLOBAL + (UART_OFFSET * (dev_index + 1)))
 
-#define XMTRDY          0x20
-#define LSR_DR		0x00 //0x01
+#define XMTRDY			0x20
+#define LSR_DR		(0x01)
 
 #define DLAB		0x80
 
-#define TXR             0       /*  Transmit register (WRITE) */
-#define RXR             0       /*  Receive register  (READ)  */
-#define IER             1       /*  Interrupt Enable          */
-#define IIR             2       /*  Interrupt ID              */
-#define FCR             2       /*  FIFO control              */
-#define LCR             3       /*  Line control              */
-#define MCR             4       /*  Modem control             */
-#define LSR             5       /*  Line Status               */
-#define MSR             6       /*  Modem Status              */
-#define DLL             0       /*  Divisor Latch Low         */
-#define DLH             1       /*  Divisor latch High        */
-#define MUL				0x34	/*  DDS Multiplier			  */
-#define DIV				0x38	/*  DDS Divisor				  */
+#define TXR             0	/*  Transmit register (WRITE) */
+#define RXR             0	/*  Receive register  (READ)  */
+#define IER             1	/*  Interrupt Enable          */
+#define IIR             2	/*  Interrupt ID              */
+#define FCR             2	/*  FIFO control              */
+#define LCR             3	/*  Line control              */
+#define MCR             4	/*  Modem control             */
+#define LSR             5	/*  Line Status               */
+#define MSR             6	/*  Modem Status              */
+#define DLL             0	/*  Divisor Latch Low         */
+#define DLH             1	/*  Divisor latch High        */
+#define MUL				0x34	/*  DDS Multiplier                        */
+#define DIV				0x38	/*  DDS Divisor                           */
 
 /* Multi serial device functions */
 #define DECLARE_TNG_SERIAL_FUNCTIONS(port) \
@@ -116,52 +108,34 @@ static inline void serial_setbrg_dev(unsigned int dev_index)
 	_serial_setbrg(dev_index);
 }
 
-/* 
- * Initialise the serial port. 
+/*
+ * Initialise the serial port.
  */
 static int serial_init_dev(const int dev_index)
 {
 	unsigned char c;
-	unsigned divisor;
-	u16 cpu_family;
-	u8 cpu_model;
-	u8 cpu_stepping;
-
-	get_cpu_version(&cpu_family, &cpu_model, &cpu_stepping);
-
-	/* if TNG A0 SOC */
-	if (cpu_family == 6 && cpu_model == 74 && cpu_stepping == 0)
-		divisor = 24;
-	else
-		divisor = 16;
+	unsigned divisor = 16;
 
 	c = readb(SERIAL_BASE_ADDR + LCR);
 	writeb(c | DLAB, SERIAL_BASE_ADDR + LCR);
 	writeb(divisor & 0xff, SERIAL_BASE_ADDR + DLL);
 	writeb((divisor >> 8) & 0xff, SERIAL_BASE_ADDR + DLH);
 	writeb(c & ~DLAB, SERIAL_BASE_ADDR + LCR);
-
 	writeb(0x2, SERIAL_BASE_ADDR + IER);	/* TIE enable */
 	writeb(0x3, SERIAL_BASE_ADDR + LCR);	/* 8n1 */
 	writeb(0, SERIAL_BASE_ADDR + FCR);	/* no fifo */
 	writeb(0x3, SERIAL_BASE_ADDR + MCR);	/* DTR + RTS */
 	writeb(7, SERIAL_BASE_ADDR + FCR);
-
-
-	/* if TNG A0 SOC */
-	if (cpu_family == 6 && cpu_model == 74 && cpu_stepping == 0)
-		writel(0x1b00, SERIAL_BASE_ADDR + MUL);
-	else
-		writel(0x2ee0, SERIAL_BASE_ADDR + MUL);
-
+	writel(0x2ee0, SERIAL_BASE_ADDR + MUL);
 	writel(0x3d09, SERIAL_BASE_ADDR + DIV);
 
 	tng_serial_enabled = 1;
 
 	return 0;
 }
-/* 
- * Shutdown the serial port. 
+
+/*
+ * Shutdown the serial port.
  */
 static int serial_shutdown_dev(const int dev_index)
 {
@@ -181,14 +155,13 @@ static int serial_shutdown_dev(const int dev_index)
 }
 
 /*
- * Read a single byte from the serial port. 
+ * Read a single byte from the serial port.
  */
 int _serial_getc(const int dev_index)
 {
-	unsigned timeout = 0xffff;
+	while ((readb(SERIAL_BASE_ADDR + LSR) & LSR_DR) == 0)
+		cpu_relax();
 
-	while (!(readb(SERIAL_BASE_ADDR + LSR) & LSR_DR) == 0 && --timeout)
-		cpu_relax(); 
 	return readb(SERIAL_BASE_ADDR + RXR) & 0xff;
 }
 
@@ -202,12 +175,12 @@ static inline int serial_getc_dev(unsigned int dev_index)
  */
 void _serial_putc(const char c, const int dev_index)
 {
-	unsigned timeout = 0xffff;
+	if (!tng_serial_enabled)
+		return;
 
-	if (!tng_serial_enabled) return;
-
-	while ((readb(SERIAL_BASE_ADDR + LSR) & XMTRDY) == 0 && --timeout)
+	while ((readb(SERIAL_BASE_ADDR + LSR) & XMTRDY) == 0)
 		cpu_relax();
+
 	writeb(c, SERIAL_BASE_ADDR + TXR);
 }
 

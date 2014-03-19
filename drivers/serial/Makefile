@@ -47,6 +47,7 @@ obj-$(CONFIG_UNIPHIER_SERIAL) += serial_uniphier.o
 obj-$(CONFIG_OMAP_SERIAL) += serial_omap.o
 obj-$(CONFIG_X86_SERIAL) += serial_x86.o
 obj-$(CONFIG_STM32_SERIAL) += serial_stm32.o
+obj-$(CONFIG_TANGIER_SERIAL) += serial_tng.o
 
 ifndef CONFIG_SPL_BUILD
 obj-$(CONFIG_USB_TTY) += usbtty.o

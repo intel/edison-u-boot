@@ -155,4 +155,10 @@ config X86_SERIAL
 	  provided (default 1843200). Enable this to obtain serial console
 	  output.
 
+config TANGIER_SERIAL
+	bool "Support for serial port on the Intel Tangier SoC"
+
+config SYS_TNG_SERIAL2
+	bool "Use Intel Tangier serial port 2"
+
 endmenu

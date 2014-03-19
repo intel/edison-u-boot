@@ -157,6 +157,7 @@ serial_initfunc(sh_serial_initialize);
 serial_initfunc(stm32_serial_initialize);
 serial_initfunc(uartlite_serial_initialize);
 serial_initfunc(zynq_serial_initialize);
+serial_initfunc(tng_serial_initialize);
 
 /**
  * serial_register() - Register serial driver with serial driver core
