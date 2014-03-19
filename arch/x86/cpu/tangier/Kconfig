@@ -1,0 +1,40 @@
+#
+# Copyright (C) 2015 Intel, Inc
+#
+# SPDX-License-Identifier:	GPL-2.0+
+#
+
+config INTEL_TANGIER
+	bool
+	depends on INTEL_SCU
+
+config SYS_CAR_ADDR
+	hex
+	default 0x19200000
+
+config SYS_CAR_SIZE
+	hex
+	default 0x4000
+	help
+	  Space in bytes in eSRAM used as Cache-As-RAM (CAR).
+	  Note this size must not exceed eSRAM's total size.
+
+config SYS_USB_OTG_BASE
+	hex
+	default 0xf9100000
+
+config SYS_EMMC_PORT_BASE
+	hex
+	default 0xff3fc000
+
+config SYS_SD_PORT_BASE
+	hex
+	default 0xff3fa000
+
+config SYS_TANGIER_PMU_BASE
+	hex
+	default 0xff00b000
+
+config SCU_IPC_BASE
+	hex
+	default 0xff009000

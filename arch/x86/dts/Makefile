@@ -7,6 +7,7 @@ dtb-y += bayleybay.dtb \
 	chromebox_panther.dtb \
 	cougarcanyon2.dtb \
 	crownbay.dtb \
+	edison.dtb \
 	efi.dtb \
 	galileo.dtb \
 	minnowmax.dtb \
