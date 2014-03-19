@@ -31,4 +31,5 @@ obj-$(CONFIG_SMP) += mp_init.o
 obj-y += mtrr.o
 obj-$(CONFIG_PCI) += pci.o
 obj-$(CONFIG_SMP) += sipi_vector.o
+obj-$(CONFIG_INTEL_TANGIER) += tangier/
 obj-y += turbo.o
