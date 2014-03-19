@@ -159,6 +159,7 @@ serial_initfunc(sa1100_serial_initialize);
 serial_initfunc(sh_serial_initialize);
 serial_initfunc(arm_dcc_initialize);
 serial_initfunc(mxs_auart_initialize);
+serial_initfunc(tng_serial_initialize);
 serial_initfunc(arc_serial_initialize);
 
 /**

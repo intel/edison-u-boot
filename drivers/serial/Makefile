@@ -6,6 +6,7 @@
 #
 
 obj-y += serial.o
+obj-y += serial_tng.o
 
 obj-$(CONFIG_ALTERA_UART) += altera_uart.o
 obj-$(CONFIG_ALTERA_JTAG_UART) += altera_jtag_uart.o
