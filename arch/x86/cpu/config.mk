@@ -5,7 +5,7 @@
 # SPDX-License-Identifier:	GPL-2.0+
 #
 
-CROSS_COMPILE ?= i386-linux-
+#CROSS_COMPILE ?= i386-linux-
 
 PLATFORM_CPPFLAGS += -DCONFIG_X86 -D__I386__ -march=i386 -Werror
 
