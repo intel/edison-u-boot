@@ -98,6 +98,7 @@ int dram_init_f(void)
  *    if (ram_size == 0)
  *        return -1;
  */
+	gd->ram_size = 0x000000003F4FFFFF;
 	return 0;
 }
 
