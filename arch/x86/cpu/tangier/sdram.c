@@ -47,7 +47,7 @@ unsigned install_e820_map(unsigned max_entries, struct e820entry *entries)
  */
 ulong board_get_usable_ram_top(ulong total_size)
 {
-	uintptr_t dest_addr = 0x2101000;
+	uintptr_t dest_addr = 0x000000003F4FFFFF;
 /*
  *    int i;
  *
