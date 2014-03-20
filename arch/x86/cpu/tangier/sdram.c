@@ -121,6 +121,21 @@ int dram_init_banksize(void)
  *        }
  *    }
  */
+/*
+ *0:      0000000000000000-0000000000097FFF (   0K -  608K) ram
+ *3:      0000000000100000-0000000003FFFFFF (   1M -   64M) ram
+ *5:      0000000006000000-000000003F4FFFFF (  96M - 1013M) ram
+ */
+
+	gd->bd->bi_dram[0].start = 0x0;
+	gd->bd->bi_dram[0].size = 0x97FFF;
+
+	gd->bd->bi_dram[1].start = 0x100000;
+	gd->bd->bi_dram[1].size = 0x3FFFFFF - gd->bd->bi_dram[1].start;
+
+	gd->bd->bi_dram[2].start = 0x6000000;
+	gd->bd->bi_dram[2].size = 0x3F4FFFFF  -  gd->bd->bi_dram[2].start;
+
 	return 0;
 }
 
