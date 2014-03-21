@@ -1,6 +1,8 @@
 #ifndef _EDISON_H
 #define _EDISON_H
 
+#undef CONFIG_OF_CONTROL
+#undef CONFIG_USE_FDT
 /* to be used instead of TNG_SERIAL2
 #define CONFIG_CONS_INDEX		1
 */
