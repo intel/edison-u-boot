@@ -4,7 +4,11 @@
 /* to be used instead of TNG_SERIAL2
 #define CONFIG_CONS_INDEX		1
 */
-
+/*
+ *#define CONFIG_PRE_CONSOLE_BUFFER
+ *#define CONFIG_PRE_CON_BUF_SZ (1024*1024*2)
+ *#define CONFIG_PRE_CON_BUF_ADDR 0x29200000
+ */
 #define DEBUG
 #define CONFIG_SERIAL
 #define CONFIG_SYS_TNG_SERIAL
