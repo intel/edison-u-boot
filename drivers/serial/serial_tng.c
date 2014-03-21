@@ -96,8 +96,6 @@
 static int hwflow;
 #endif
 
-static int tng_serial_enabled = 0;
-
 void _serial_setbrg(const int dev_index)
 {
 	return;
@@ -129,8 +127,6 @@ static int serial_init_dev(const int dev_index)
 	writel(0x2ee0, SERIAL_BASE_ADDR + MUL);
 	writel(0x3d09, SERIAL_BASE_ADDR + DIV);
 
-	tng_serial_enabled = 1;
-
 	return 0;
 }
 
@@ -149,8 +145,6 @@ static int serial_shutdown_dev(const int dev_index)
 	writeb(0x7, SERIAL_BASE_ADDR + FCR);
 	writeb(0x0, SERIAL_BASE_ADDR + FCR);	/* no fifo */
 
-	tng_serial_enabled = 0;
-
 	return 0;
 }
 
@@ -159,8 +153,10 @@ static int serial_shutdown_dev(const int dev_index)
  */
 int _serial_getc(const int dev_index)
 {
-	while ((readb(SERIAL_BASE_ADDR + LSR) & LSR_DR) == 0)
-		cpu_relax();
+	while ((readb(SERIAL_BASE_ADDR + LSR) & LSR_DR) == 0) {
+		if (gd->have_console)
+			break;
+	}
 
 	return readb(SERIAL_BASE_ADDR + RXR) & 0xff;
 }
@@ -175,9 +171,6 @@ static inline int serial_getc_dev(unsigned int dev_index)
  */
 void _serial_putc(const char c, const int dev_index)
 {
-	if (!tng_serial_enabled)
-		return;
-
 	while ((readb(SERIAL_BASE_ADDR + LSR) & XMTRDY) == 0)
 		cpu_relax();
 
