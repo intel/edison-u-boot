@@ -69,12 +69,14 @@ _start:
 	movl	%ecx, %esi
 
 	/* Load the segement registers to match the GDT loaded in start16.S */
+#ifndef CONFIG_INHERIT_GDT
 	movl	$(X86_GDT_ENTRY_32BIT_DS * X86_GDT_ENTRY_SIZE), %eax
 	movw	%ax, %fs
 	movw	%ax, %ds
 	movw	%ax, %gs
 	movw	%ax, %es
 	movw	%ax, %ss
+#endif
 
 	/* Clear the interrupt vectors */
 	lidt	blank_idt_ptr
