@@ -50,6 +50,7 @@ _start:
 	movw	$GD_FLG_COLD_BOOT, %bx
 1:
 
+#ifndef CONFIG_INHERIT_GDT
 	/* Load the segement registes to match the gdt loaded in start16.S */
 	movl	$(X86_GDT_ENTRY_32BIT_DS * X86_GDT_ENTRY_SIZE), %eax
 	movw	%ax, %fs
@@ -57,6 +58,7 @@ _start:
 	movw	%ax, %gs
 	movw	%ax, %es
 	movw	%ax, %ss
+#endif
 
 	/* Clear the interrupt vectors */
 	lidt	blank_idt_ptr
