@@ -40,6 +40,10 @@ ELF	:= $(addprefix $(obj)/,$(ELF))
 
 gcclibdir := $(shell dirname `$(CC) -print-libgcc-file-name`)
 
+ifeq ($(ARCH) , x86)
+gcclibdir := $(shell dirname $(NORMAL_LIBGCC))
+endif
+
 # For PowerPC there's no need to compile standalone applications as a
 # relocatable executable.  The relocation data is not needed, and
 # also causes the entry point of the standalone application to be
