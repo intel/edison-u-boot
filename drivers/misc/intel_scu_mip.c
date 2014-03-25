@@ -4,12 +4,12 @@
 #include <asm-generic/errno.h>
 #include <intel_scu_ipc.h>
 
-#define IPC_MIP_BASE     0xFFFD8000	/* sram base address for mip accessing*/
+#define IPC_MIP_BASE     0xFFFD8000	/* sram base address for mip accessing */
 #define IPC_MIP_MAX_ADDR 0x1000
 
-static void *intel_mip_base = (void *) IPC_MIP_BASE;
+static void *intel_mip_base = (void *)IPC_MIP_BASE;
 
-static int read_mip(u8 *data, int len, int offset, int issigned)
+static int read_mip(u8 * data, int len, int offset, int issigned)
 {
 	int ret;
 	u32 sptr, dptr, cmd, cmdid, data_off;
@@ -22,10 +22,10 @@ static int read_mip(u8 *data, int len, int offset, int issigned)
 
 	do {
 		ret = intel_scu_ipc_raw_cmd(cmd, 0, NULL, 0, &data_off, 1,
-				dptr, sptr);
-		if (ret == -EIO) 
-			mdelay(20); //msleep(20);
-	} while (ret == -EIO); 
+					    dptr, sptr);
+		if (ret == -EIO)
+			mdelay(20);	//msleep(20);
+	} while (ret == -EIO);
 
 	if (!ret)
 		memcpy(data, intel_mip_base + data_off, len);
@@ -33,13 +33,13 @@ static int read_mip(u8 *data, int len, int offset, int issigned)
 	return ret;
 }
 
-int intel_scu_ipc_read_mip(u8 *data, int len, int offset, int issigned)
+int intel_scu_ipc_read_mip(u8 * data, int len, int offset, int issigned)
 {
 	int ret;
 
 	/* Only SMIP read for Cloverview is supported */
 	if ((intel_mid_identify_cpu() == INTEL_MID_CPU_CHIP_CLOVERVIEW)
-			&& (issigned != 1))
+	    && (issigned != 1))
 		return -EINVAL;
 
 	if (issigned != 1)
@@ -57,9 +57,10 @@ int intel_scu_ipc_read_mip(u8 *data, int len, int offset, int issigned)
 
 	return ret;
 }
+
 //EXPORT_SYMBOL(intel_scu_ipc_read_mip);
 
-int intel_scu_ipc_write_umip(u8 *data, int len, int offset)
+int intel_scu_ipc_write_umip(u8 * data, int len, int offset)
 {
 	int ret, offset_align;
 	int len_align = 0;
@@ -83,14 +84,6 @@ int intel_scu_ipc_write_umip(u8 *data, int len, int offset)
 
 	u8 rbuf[len_align];
 	if (len != len_align) {
-#if 0 /* instead of kzalloc(), statically allocate rbuf[len_align]. */
-		buf = kzalloc(len_align, GFP_KERNEL);
-		if (!buf) {
-			pr_err("Alloc memory failed\n");
-			ret = -1; //-ENOMEM;
-			goto fail;
-		}
-#endif
 		buf = rbuf;
 		ret = read_mip(buf, len_align, offset_align, 0);
 		if (ret)
@@ -108,20 +101,15 @@ int intel_scu_ipc_write_umip(u8 *data, int len, int offset)
 
 	do {
 		ret = intel_scu_ipc_raw_cmd(cmd, 0, NULL, 0, NULL, 0,
-				dptr, sptr);
+					    dptr, sptr);
 		if (ret == -EIO)
-			mdelay(20); //msleep(20);
+			mdelay(20);	//msleep(20);
 	} while (ret == -EIO);
 
 fail:
-#if 0
-	if (buf && len_align != len)
-		kfree(buf);
-#endif
 	intel_scu_ipc_unlock();
 
 	return ret;
 }
+
 //EXPORT_SYMBOL(intel_scu_ipc_write_umip);
-
-
