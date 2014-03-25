@@ -89,4 +89,7 @@ config RESET
 	  effect a reset. The uclass will try all available drivers when
 	  reset_walk() is called.
 
+config INTEL_SCU
+	bool "Enable support for Intel SCU"
+
 endmenu
