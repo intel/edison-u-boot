@@ -28,7 +28,7 @@
 #define CONFIG_GENERIC_MMC
 #define CONFIG_MMC
 #define CONFIG_SDHCI
-#define CONFIG_TANGIER_MMC
+#define CONFIG_TANGIER_SDHCI
 #define CONFIG_CMD_MMC
 #define CONFIG_MMC_SDMA
 /*#define CONFIG_MMC_TRACE*/
@@ -109,7 +109,7 @@
  */
 #define CONFIG_ENV_IS_NOWHERE
 #define CONFIG_ENV_SIZE                         2048
-#jggjdefine CONFIG_SYS_MMC_ENV_DEV                  1
+#define CONFIG_SYS_MMC_ENV_DEV                  1
 #define CONFIG_SYS_MMC_ENV_PART                 0
 
 #endif
