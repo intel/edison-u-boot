@@ -22,19 +22,34 @@
 #define CONFIG_SYS_TNG_SERIAL2
 #define CONFIG_BAUDRATE                         115200
 
-
 /*
 * MMC
  */
 #define CONFIG_GENERIC_MMC
 #define CONFIG_MMC
 #define CONFIG_SDHCI
-#define CONFIG_S5P_SDHCI
+#define CONFIG_TANGIER_MMC
 #define CONFIG_CMD_MMC
 #define CONFIG_MMC_SDMA
 /*#define CONFIG_MMC_TRACE*/
 
+/************************************************************
+ * DISK Partition support
+ ************************************************************/
+#define CONFIG_EFI_PARTITION
+#define CONFIG_DOS_PARTITION
+#define CONFIG_MAC_PARTITION
 
+/*
+ * part uuid mmc 0 disk_uuid
+ * gpt write mmc 0 uuid_disk=${disk_uuid}\;name=boot,start=33571840,size=128M,uuid=80868086-8086-8086-8086-000000000000\;
+ * gpt write mmc 0 uuid_disk=${disk_uuid}\;name=boot2,start=33571840,size=128M,uuid=80868086-8086-8086-8086-000000000000\;name=panic,size=8M,uuid=80868086-8086-8086-8086-000000000001;
+ */
+#define CONFIG_CMD_GPT
+#define CONFIG_CMD_PART
+#define CONFIG_CMD_EXT4
+#define CONFIG_CMD_EXT4_WRITE
+#define CONFIG_PARTITION_UUIDS
 
 /*
  * Miscellaneous configurable options
@@ -47,7 +62,6 @@
 						 16)
 #define CONFIG_SYS_MAXARGS			16
 #define CONFIG_SYS_BARGSIZE			CONFIG_SYS_CBSIZE
-
 
 /*-----------------------------------------------------------------------
  * Board Features
@@ -73,7 +87,7 @@
 #define CONFIG_SYS_MONITOR_BASE		        CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_MONITOR_LEN			(256 * 1024)
 
-#define CONFIG_SYS_MALLOC_LEN			(0x20000 + 128 * 1024)
+#define CONFIG_SYS_MALLOC_LEN			(10 * 1024 * 1024)
 
 #define CONFIG_SYS_HEAP_SIZE                   (128*1024*1024)
 #define CONFIG_SYS_HEAP_MINI_SIZE              (5*1024*1024)
@@ -95,7 +109,7 @@
  */
 #define CONFIG_ENV_IS_NOWHERE
 #define CONFIG_ENV_SIZE                         2048
-#define CONFIG_SYS_MMC_ENV_DEV                  1
+#jggjdefine CONFIG_SYS_MMC_ENV_DEV                  1
 #define CONFIG_SYS_MMC_ENV_PART                 0
 
 #endif
