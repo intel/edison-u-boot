@@ -138,4 +138,7 @@ config WINBOND_W83627
 	  legacy UART or other devices in the Winbond Super IO chips
 	  on X86 platforms.
 
+config INTEL_SCU
+	bool "Enable support for Intel SCU"
+
 endmenu
