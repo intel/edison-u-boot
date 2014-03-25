@@ -10,6 +10,8 @@
 #include <asm/u-boot-x86.h>
 #include <asm/cache.h>
 #include <asm/io.h>
+#include <asm/errno.h>
+#include <asm/arch/mmc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -48,4 +50,12 @@ void panic_puts(const char *str)
 int print_cpuinfo(void)
 {
 	return default_print_cpuinfo();
+}
+
+int board_mmc_init(bd_t * bis)
+{
+	int index = 0;
+	unsigned int base = CONFIG_SYS_EMMC_PORT_BASE + (0x40000 * index);
+
+	return tangier_sdhci_init(base, index, 4);
 }
