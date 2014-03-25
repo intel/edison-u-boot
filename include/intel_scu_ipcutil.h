@@ -18,22 +18,21 @@
 #define INTEL_SCU_IPC_S0IX_RESIDENCY	0xD1
 
 struct scu_ipc_data {
-	__u32	count;  /* No. of registers */
-	__u16	addr[5]; /* Register addresses */
-	__u8	data[5]; /* Register data */
-	__u8	mask; /* Valid for read-modify-write */
+	__u32 count;		/* No. of registers */
+	__u16 addr[5];		/* Register addresses */
+	__u8 data[5];		/* Register data */
+	__u8 mask;		/* Valid for read-modify-write */
 };
 
 struct scu_ipc_version {
-	__u32	count;  /* length of version info */
-	__u8	data[16]; /* version data */
+	__u32 count;		/* length of version info */
+	__u8 data[16];		/* version data */
 };
 
 struct osc_clk_t {
-	__u32	id; /* clock id */
-	__u32	khz; /* clock frequency */
+	__u32 id;		/* clock id */
+	__u32 khz;		/* clock frequency */
 };
-
 
 /* Penwell has 4 osc clocks */
 #define OSC_CLK_AUDIO	0	/* Audio */
@@ -60,18 +59,18 @@ int intel_scu_ipc_msic_vprog1(int on);
 int intel_scu_ipc_msic_vprog2(int on);
 
 /* OSHOB-OS Handoff Buffer read */
-int intel_scu_ipc_read_oshob(u8 *data, int len, int offset);
+int intel_scu_ipc_read_oshob(u8 * data, int len, int offset);
 /* OSNIB-OS No Init Buffer write */
 
 int intel_scu_ipc_get_oshob_size(void);
-int intel_scu_ipc_write_osnib(u8 *data, int len, int offset);
-int intel_scu_ipc_read_osnib(u8 *data, int len, int offset);
-int intel_scu_ipc_write_osnib_extend(u8 *data, int len, int offset);
-int intel_scu_ipc_read_osnib_extend(u8 *data, int len, int offset);
+int intel_scu_ipc_write_osnib(u8 * data, int len, int offset);
+int intel_scu_ipc_read_osnib(u8 * data, int len, int offset);
+int intel_scu_ipc_write_osnib_extend(u8 * data, int len, int offset);
+int intel_scu_ipc_read_osnib_extend(u8 * data, int len, int offset);
 int intel_scu_ipc_write_osnib_rr(u8 rr);
-int intel_scu_ipc_read_osnib_rr(u8 *rr);
-int intel_scu_ipc_read_osnib_wd(u8 *wd);
-int intel_scu_ipc_write_osnib_wd(u8 *wd);
+int intel_scu_ipc_read_osnib_rr(u8 * rr);
+int intel_scu_ipc_read_osnib_wd(u8 * wd);
+int intel_scu_ipc_write_osnib_wd(u8 * wd);
 int intel_scu_ipc_oshob_init(void);
 
 #define OEM_IPC_COMMAND     (0xE8)
@@ -82,11 +81,11 @@ int intel_scu_ipc_oshob_init(void);
 #define TAMPER_OPCODE       (0x84)
 
 struct ipc_mailbox {
-    u8 oper;
-    u8 ostype;
-    u8 status;
-    u8 opcode;
-    u32 data[3];
+	u8 oper;
+	u8 ostype;
+	u8 status;
+	u8 opcode;
+	u32 data[3];
 };
 
 struct secure_rtc_tod {
@@ -100,7 +99,7 @@ struct secure_rtc_tod {
 	u8 reset;
 };
 
-struct secure_rtc_tod* intel_scu_ipc_read_srtc(void);
+struct secure_rtc_tod *intel_scu_ipc_read_srtc(void);
 int intel_scu_ipc_increase_mtc(u8 ostype);
 int intel_scu_ipc_read_mtc(u8 ostype);
 u8 intel_scu_ipc_set_tamper(void);
