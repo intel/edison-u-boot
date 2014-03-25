@@ -27,7 +27,6 @@
 #include <asm-generic/errno.h>
 #include <intel_scu_ipc.h>
 
-#ifdef CONFIG_X86_MRFLD
 #define				IPC_WATCHDOG 0xF8
 enum {
 	SCU_WATCHDOG_START = 0,
@@ -48,19 +47,3 @@ int watchdog_timer_disable(void)
 	}
 	return error;
 }
-#else
-#define IPC_SET_WATCHDOG_TIMER	0xF8
-#define IPC_SET_SUB_DISABLE     0x01
-int watchdog_timer_disable(void)
-{
-	int ret;
-
-	ret = intel_scu_ipc_command(IPC_SET_WATCHDOG_TIMER,
-					IPC_SET_SUB_DISABLE, NULL, 0, NULL, 0);
-	if (ret) {
-		printf("Error sending disable ipc: %x\n", ret);
-	}
-
-	return ret;
-}
-#endif
