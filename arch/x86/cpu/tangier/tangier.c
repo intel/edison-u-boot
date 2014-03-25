@@ -14,6 +14,7 @@
 #include <asm/arch/mmc.h>
 #include <asm/msr.h>
 #include <asm/arch/intel-mid.h>
+#include <intel_scu_ipc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -26,6 +27,7 @@ int cpu_init_f(void)
 	 *timestamp_init();
 	 */
 
+	init_scu_ipc();
 	return x86_cpu_init_f();
 }
 
