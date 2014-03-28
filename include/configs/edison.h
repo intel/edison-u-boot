@@ -89,7 +89,7 @@
 #define CONFIG_SYS_MONITOR_BASE		        CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_MONITOR_LEN			(256 * 1024)
 
-#define CONFIG_SYS_MALLOC_LEN			(10 * 1024 * 1024)
+#define CONFIG_SYS_MALLOC_LEN			( 128 * 1024 * 1024)
 
 #define CONFIG_SYS_HEAP_SIZE                   (128*1024*1024)
 #define CONFIG_SYS_HEAP_MINI_SIZE              (5*1024*1024)
@@ -111,10 +111,14 @@
 /*-----------------------------------------------------------------------
  * Environment
  */
-#define CONFIG_ENV_IS_NOWHERE
-#define CONFIG_ENV_SIZE                         2048
-#define CONFIG_SYS_MMC_ENV_DEV                  1
+#define CONFIG_ENV_IS_IN_MMC
+#define CONFIG_SYS_MMC_ENV_DEV                  0
 #define CONFIG_SYS_MMC_ENV_PART                 0
+#define CONFIG_ENV_SIZE                         (64*1024)
+#define CONFIG_ENV_OFFSET	5242880
+#define CONFIG_ENV_OFFSET_REDUND 7340032
+#define CONFIG_CMD_SAVEENV
+#define CONFIG_CMD_RUN
 
 /*-----------------------------------------------------------------------
  * USB
