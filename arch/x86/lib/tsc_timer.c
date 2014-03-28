@@ -34,13 +34,13 @@ u64 __attribute__((no_instrument_function)) get_ticks(void)
 	return now_tick - gd->arch.tsc_base;
 }
 
-#define PLATFORM_INFO_MSR 0xce
+
 
 /* Get the speed of the TSC timer in MHz */
-unsigned __attribute__((no_instrument_function)) long get_tbclk_mhz(void)
+unsigned __weak __attribute__((no_instrument_function)) long get_tbclk_mhz(void)
 {
 	u32 ratio;
-	u64 platform_info = native_read_msr(PLATFORM_INFO_MSR);
+	u64 platform_info = native_read_msr(MSR_PLATFORM_INFO);
 
 	/* 100MHz times Max Non Turbo ratio */
 	ratio = (platform_info >> 8) & 0xff;
