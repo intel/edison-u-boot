@@ -73,7 +73,6 @@ int board_mmc_init(bd_t * bis)
 	return tangier_sdhci_init(base, index, 4);
 }
 
-
 /* ovveride get_tbclk_mhz code see tsc_timer */
 /* Get the speed of the TSC timer in MHz */
 unsigned __attribute__((no_instrument_function)) long get_tbclk_mhz(void)
@@ -119,4 +118,9 @@ unsigned __attribute__((no_instrument_function)) long get_tbclk_mhz(void)
 	}
 	// return Freq in Mhz
 	return ((bus_freq * ratio)/1000);
+}
+
+void reset_cpu(ulong addr)
+{
+	intel_scu_ipc_simple_command(IPCMSG_COLD_RESET, 0);
 }
