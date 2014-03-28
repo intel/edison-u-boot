@@ -13,16 +13,6 @@
 #define IPC_WRITE_BUFFER        0x80
 #define IPC_IOC			0x100
 
-struct intel_ipc_controller {
-	u32 ipc_base;
-	u32 i2c_base;
-};
-
-static struct intel_ipc_controller ipcdev;	/* Only one for now */
-
-static int platform;		/* Platform type */
-static u8 system_state;		/* SYSTEM status */
-
 u8 intel_readb_scu_register(u32 module_addr, u32 offset)
 {
 	return readb(CONFIG_SCU_BASE_ADDR + module_addr + offset);
@@ -54,15 +44,8 @@ struct vrtc_info read_vrtc_info(void)
  * |rfu2(8) | size(8) | command id(4) | rfu1(3) | ioc(1) | command(8)|
  */
 void intel_scu_ipc_send_command(u32 cmd)
-{				/* Send ipc command */
-
-	if (system_state == 1) {	// SYSTEM_RUNNING
-		//ipcdev.ioc = 1;
-		writel(cmd | IPC_IOC, ipcdev.ipc_base);
-	} else {
-		//ipcdev.ioc = 0;
-		writel(cmd, ipcdev.ipc_base);
-	}
+{
+	writel(cmd | IPC_IOC, CONFIG_SCU_IPC_BASE);
 }
 
 /*
@@ -72,7 +55,7 @@ void intel_scu_ipc_send_command(u32 cmd)
  */
 void ipc_data_writel(u32 data, u32 offset)
 {				/* Write ipc data */
-	writel(data, ipcdev.ipc_base + IPC_WRITE_BUFFER + offset);
+	writel(data, CONFIG_SCU_IPC_BASE + IPC_WRITE_BUFFER + offset);
 }
 
 /*
@@ -82,37 +65,35 @@ void ipc_data_writel(u32 data, u32 offset)
  * Format:
  * |rfu3(8)|error code(8)|initiator id(8)|cmd id(4)|rfu1(2)|error(1)|busy(1)|
  */
-int test;
 
 u32 ipc_read_status(void)
 {
-	//return __raw_readl(ipcdev.ipc_base + IPC_STATUS_ADDR);
-	test = __raw_readl(ipcdev.ipc_base + IPC_STATUS_ADDR);
-	return test;
+	return readl(CONFIG_SCU_IPC_BASE + IPC_STATUS_ADDR);
 }
 
 u8 ipc_data_readb(u32 offset)
 {				/* Read ipc byte data */
-	return readb(ipcdev.ipc_base + IPC_READ_BUFFER + offset);
+	return readb(CONFIG_SCU_IPC_BASE + IPC_READ_BUFFER + offset);
 }
 
 u32 ipc_data_readl(u32 offset)
 {				/* Read ipc u32 data */
-	return readl(ipcdev.ipc_base + IPC_READ_BUFFER + offset);
+	return readl(CONFIG_SCU_IPC_BASE + IPC_READ_BUFFER + offset);
 }
 
 int intel_scu_ipc_check_status(void)
 {
 	int ret = 0;
-	int status;
+	int status = 0;
 	int loop_count = 3000000;
-	//int i;
+
 	while ((ipc_read_status() & 1) && --loop_count)
 		udelay(1);
 	if (loop_count == 0)
 		ret = -ETIMEDOUT;
 
 	status = ipc_read_status();
+
 	if (status & 0x2) {
 		printf("%s() status=0x%08x\n", __func__, status);
 		return -EIO;
@@ -135,7 +116,7 @@ int intel_scu_ipc_check_status(void)
  */
 int intel_scu_ipc_simple_command(int cmd, int sub)
 {
-	int err;
+	int err = 0;
 
 	intel_scu_ipc_send_command(sub << 12 | cmd);
 	err = intel_scu_ipc_check_status();
@@ -153,8 +134,8 @@ int intel_scu_ipc_raw_cmd(u32 cmd, u32 sub, u8 * in, u8 inlen, u32 * out,
 
 	memcpy(wbuf, in, inlen);
 
-	writel(dptr, ipcdev.ipc_base + IPC_DPTR_ADDR);
-	writel(sptr, ipcdev.ipc_base + IPC_SPTR_ADDR);
+	writel(dptr, CONFIG_SCU_IPC_BASE + IPC_DPTR_ADDR);
+	writel(sptr, CONFIG_SCU_IPC_BASE + IPC_SPTR_ADDR);
 
 	/**
 	* SRAM controller don't support 8bit write, it only supports
@@ -192,15 +173,6 @@ int intel_scu_ipc_command(u32 cmd, u32 sub, u8 * in, u8 inlen,
 
 int init_scu_ipc(void)
 {
-	if (system_state)
-		return 0;
-
-	ipcdev.ipc_base = CONFIG_SCU_IPC_BASE;
-	ipcdev.i2c_base = CONFIG_SCU_I2C_BASE;
-
-	platform = CONFIG_CPU_CHIP;
-	system_state = 1;	// SYSTEM_RUNNING 
-
 	intel_scu_ipc_oshob_init();
 
 	return 0;
