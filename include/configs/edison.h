@@ -104,6 +104,8 @@
 #define CONFIG_PCI
 #define CONFIG_SYS_PCAT_INTERRUPTS
 
+#define CONFIG_CMD_GETTIME
+
 /*-----------------------------------------------------------------------
  * Environment
  */
