@@ -18,11 +18,29 @@ static unsigned char __aligned(CONFIG_SYS_CACHELINE_SIZE)
 				dfu_file_buf[CONFIG_SYS_DFU_MAX_FILE_SIZE];
 static long dfu_file_buf_len;
 
+static int mmc_access_part(struct dfu_entity *dfu, struct mmc *mmc, int part)
+{
+	int ret;
+
+	if (part == mmc->part_num)
+		return 0;
+
+	ret = mmc_switch_part(dfu->dev_num, part);
+	if (ret) {
+		error("Cannot switch to partition %d\n", part);
+		return ret;
+	}
+	mmc->part_num = part;
+
+	return 0;
+}
+
 static int mmc_block_op(enum dfu_op op, struct dfu_entity *dfu,
 			u64 offset, void *buf, long *len)
 {
 	struct mmc *mmc = find_mmc_device(dfu->dev_num);
 	u32 blk_start, blk_count, n = 0;
+	int ret, part_num_bkp = 0;
 
 	/*
 	 * We must ensure that we work in lba_blk_size chunks, so ALIGN
@@ -37,6 +55,13 @@ static int mmc_block_op(enum dfu_op op, struct dfu_entity *dfu,
 			dfu->data.mmc.lba_start + dfu->data.mmc.lba_size) {
 		puts("Request would exceed designated area!\n");
 		return -EINVAL;
+	}
+
+	if (dfu->data.mmc.partition_access != DFU_NOT_SUPPORTED) {
+		part_num_bkp = mmc->part_num;
+		ret = mmc_access_part(dfu, mmc, dfu->data.mmc.partition_access);
+		if (ret)
+			return ret;
 	}
 
 	debug("%s: %s dev: %d start: %d cnt: %d buf: 0x%p\n", __func__,
@@ -57,7 +82,15 @@ static int mmc_block_op(enum dfu_op op, struct dfu_entity *dfu,
 
 	if (n != blk_count) {
 		error("MMC operation failed");
+		if (dfu->data.mmc.partition_access != DFU_NOT_SUPPORTED)
+			mmc_access_part(dfu, mmc, part_num_bkp);
 		return -EIO;
+	}
+
+	if (dfu->data.mmc.partition_access != DFU_NOT_SUPPORTED) {
+		ret = mmc_access_part(dfu, mmc, part_num_bkp);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
@@ -193,12 +226,22 @@ int dfu_fill_entity_mmc(struct dfu_entity *dfu, char *s)
 	char *st;
 
 	dfu->dev_type = DFU_DEV_MMC;
+	dfu->data.mmc.partition_access = DFU_NOT_SUPPORTED;
+
 	st = strsep(&s, " ");
 	if (!strcmp(st, "mmc")) {
 		dfu->layout = DFU_RAW_ADDR;
 		dfu->data.mmc.lba_start = simple_strtoul(s, &s, 16);
-		dfu->data.mmc.lba_size = simple_strtoul(++s, &s, 16);
+		s++;
+		dfu->data.mmc.lba_size = simple_strtoul(s, &s, 16);
 		dfu->data.mmc.lba_blk_size = get_mmc_blk_size(dfu->dev_num);
+		if (*s) {
+			s++;
+			st = strsep(&s, " ");
+			if (!strcmp(st, "mmcpart"))
+				dfu->data.mmc.partition_access =
+					simple_strtoul(s, &s, 0);
+		}
 	} else if (!strcmp(st, "fat")) {
 		dfu->layout = DFU_FS_FAT;
 	} else if (!strcmp(st, "ext4")) {
@@ -236,7 +279,8 @@ int dfu_fill_entity_mmc(struct dfu_entity *dfu, char *s)
 
 	if (dfu->layout == DFU_FS_EXT4 || dfu->layout == DFU_FS_FAT) {
 		dfu->data.mmc.dev = simple_strtoul(s, &s, 10);
-		dfu->data.mmc.part = simple_strtoul(++s, &s, 10);
+		s++;
+		dfu->data.mmc.part = simple_strtoul(s, &s, 10);
 	}
 
 	dfu->read_medium = dfu_read_medium_mmc;

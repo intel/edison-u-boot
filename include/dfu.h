@@ -37,11 +37,16 @@ enum dfu_op {
 	DFU_OP_WRITE,
 };
 
+#define DFU_NOT_SUPPORTED -1
+
 struct mmc_internal_data {
 	/* RAW programming */
 	unsigned int lba_start;
 	unsigned int lba_size;
 	unsigned int lba_blk_size;
+
+	/* Partition access */
+	int partition_access;
 
 	/* FAT/EXT */
 	unsigned int dev;
