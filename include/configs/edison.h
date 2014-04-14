@@ -2,6 +2,184 @@
 #define _EDISON_H
 
 /*-----------------------------------------------------------------------
+ * Misc
+ */
+
+#define CONFIG_CMD_ASKENV
+#define CONFIG_CMD_BDI
+#define CONFIG_CMD_BSP
+#define CONFIG_CMD_BOOTD
+#define CONFIG_CMD_CACHE
+#define CONFIG_CMD_CONSOLE
+/*
+ *#define CONFIG_CMD_DATE
+ */
+#define CONFIG_CMD_DIAG
+#define CONFIG_CMD_ECHO
+#define CONFIG_CMD_EDITENV
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_ENV_CALLBACK
+#define CONFIG_CMD_ENV_FLAGS
+#define CONFIG_CMD_ENV_EXISTS
+/*
+ *#define CONFIG_CMD_GETTIME
+ */
+#define CONFIG_CMD_GREPENV
+#define CONFIG_CMD_HASH
+#define CONFIG_CMD_INI
+/*
+ *#define CONFIG_CMD_KGDB
+ */
+/*
+ *#define CONFIG_CMD_MD5SUM
+ */
+#define CONFIG_CMD_MEMINFO
+#define CONFIG_CMD_MEMORY
+#define CONFIG_CMD_PORTIO
+#define CONFIG_CMD_READ
+#define CONFIG_CMD_REGINFO
+/*
+ *#define CONFIG_CMD_I2C
+ *#define CONFIG_SYS_I2C_SPEED    50000
+ */
+/*
+ *#define CONFIG_CMD_SHA1SUM
+ */
+#define CONFIG_CMD_SOURCE
+/*
+ *#define CONFIG_CMD_SPI
+ */
+#define CONFIG_CMD_TIMER
+
+/*
+ *common/cmd_date.c|49| undefined reference to `rtc_reset'
+ *common/cmd_date.c|52| undefined reference to `rtc_get'
+ *common/cmd_date.c|61| undefined reference to `rtc_set'
+ *common/cmd_date.c|70| undefined reference to `rtc_get'
+ *|| common/built-in.o: In function `do_fuse':
+ *common/cmd_fuse.c|75| undefined reference to `fuse_read'
+ *common/cmd_fuse.c|93| undefined reference to `fuse_sense'
+ *common/cmd_fuse.c|112| undefined reference to `fuse_prog'
+ *common/cmd_fuse.c|126| undefined reference to `fuse_override'
+ *|| common/built-in.o: In function `do_i2c_read':
+ *common/cmd_i2c.c|245| undefined reference to `i2c_read'
+ *|| common/built-in.o: In function `do_i2c_write':
+ *common/cmd_i2c.c|286| undefined reference to `i2c_write'
+ *|| common/built-in.o: In function `do_i2c_md':
+ *common/cmd_i2c.c|370| undefined reference to `i2c_read'
+ *|| common/built-in.o: In function `do_i2c_mw':
+ *common/cmd_i2c.c|452| undefined reference to `i2c_write'
+ *|| common/built-in.o: In function `do_i2c_crc':
+ *common/cmd_i2c.c|523| undefined reference to `i2c_read'
+ *|| common/built-in.o: In function `do_i2c_probe':
+ *common/cmd_i2c.c|711| undefined reference to `i2c_probe'
+ *|| common/built-in.o: In function `do_i2c_loop':
+ *common/cmd_i2c.c|788| undefined reference to `i2c_read'
+ *|| common/built-in.o: In function `do_i2c_reset':
+ *common/cmd_i2c.c|1527| undefined reference to `i2c_init'
+ *|| common/built-in.o: In function `mod_i2c_mem':
+ *common/cmd_i2c.c|603| undefined reference to `i2c_read'
+ *common/cmd_i2c.c|649| undefined reference to `i2c_write'
+ *|| common/built-in.o: In function `do_md5sum':
+ *common/cmd_md5sum.c|146| undefined reference to `md5_wd'
+ *|| common/built-in.o: In function `do_spi':
+ *common/cmd_spi.c|106| undefined reference to `spi_setup_slave'
+ *common/cmd_spi.c|112| undefined reference to `spi_claim_bus'
+ *common/cmd_spi.c|113| undefined reference to `spi_xfer'
+ *common/cmd_spi.c|123| undefined reference to `spi_release_bus'
+ *common/cmd_spi.c|124| undefined reference to `spi_free_slave'
+ *|| common/built-in.o: In function `jumptable_init':
+ *include/_exports.h|25| undefined reference to `i2c_write'
+ *include/_exports.h|26| undefined reference to `i2c_read'
+ *include/_exports.h|27| undefined reference to `spi_init'
+ *include/_exports.h|28| undefined reference to `spi_setup_slave'
+ *include/_exports.h|29| undefined reference to `spi_free_slave'
+ *include/_exports.h|30| undefined reference to `spi_claim_bus'
+ *include/_exports.h|31| undefined reference to `spi_release_bus'
+ *include/_exports.h|32| undefined reference to `spi_xfer'
+ *|| common/built-in.o: In function `handle_exception':
+ *common/kgdb.c|332| undefined reference to `kgdb_longjmp'
+ *common/kgdb.c|344| undefined reference to `kgdb_trap'
+ *common/kgdb.c|346| undefined reference to `kgdb_setjmp'
+ *common/kgdb.c|349| undefined reference to `kgdb_enter'
+ *common/kgdb.c|401| undefined reference to `kgdb_setjmp'
+ *common/kgdb.c|420| undefined reference to `kgdb_getregs'
+ *common/kgdb.c|428| undefined reference to `kgdb_putregs'
+ *common/kgdb.c|498| undefined reference to `kgdb_exit'
+ *common/kgdb.c|512| undefined reference to `kgdb_putreg'
+ *|| common/built-in.o: In function `kgdb_error':
+ *common/kgdb.c|554| undefined reference to `kgdb_longjmp'
+ *|| common/built-in.o: In function `do_kgdb':
+ *common/kgdb.c|590| undefined reference to `kgdb_breakpoint'
+ *
+ */
+
+/*
+ *#define CONFIG_CMD_TRACE
+ */
+/*
+ *#define CONFIG_CMD_DATE
+ */
+#define CONFIG_CMD_ECHO
+/*
+ *#define CONFIG_CMD_GPIO
+ */
+#define CONFIG_CMD_LOADB
+#define CONFIG_CMD_LOADS
+#define CONFIG_CMD_IRQ
+#define CONFIG_CMD_MEMORY
+#define CONFIG_CMD_MISC
+#define CONFIG_CMD_PCI
+#define CONFIG_CMD_SOURCE
+/*
+ *#define CONFIG_CMD_TIME
+ *#define CONFIG_CMD_GETTIME
+ */
+/*
+ *#define CONFIG_CMD_USB
+ */
+#define CONFIG_CMD_FAT
+/*
+ *#define EARLY_TRACE
+ *#define FTRACE
+ */
+
+/*
+ *void rtc_reset(void);
+ *int rtc_set(struct rtc_time *tmp);
+ *int rtc_get(struct rtc_time *tmp);
+ *
+ *inline int gpio_request(unsigned gpio, const char *label)
+ *inline int gpio_get_value(unsigned gpio)
+ *inline int gpio_set_value(unsigned gpio, int val)
+ *int gpio_direction_input(unsigned gpio)
+ *int gpio_direction_output(unsigned gpio, int value)
+ *int gpio_free(unsigned gpio)
+ */
+
+/*
+ *common/cmd_date.c|49| undefined reference to `rtc_reset'
+ *common/cmd_date.c|52| undefined reference to `rtc_get'
+ *common/cmd_date.c|61| undefined reference to `rtc_set'
+ *common/cmd_date.c|70| undefined reference to `rtc_get'
+ *|| common/built-in.o: In function `do_gpio':
+ *common/cmd_gpio.c|60| undefined reference to `gpio_request'
+ *common/cmd_gpio.c|67| undefined reference to `gpio_direction_input'
+ *common/cmd_gpio.c|68| undefined reference to `gpio_get_value'
+ *common/cmd_gpio.c|73| undefined reference to `gpio_get_value'
+ *common/cmd_gpio.c|76| undefined reference to `gpio_direction_output'
+ *common/cmd_gpio.c|81| undefined reference to `gpio_free'
+ *|| common/built-in.o: In function `do_trace':
+ *common/cmd_trace.c|102| undefined reference to `trace_print_stats'
+ *|| common/built-in.o: In function `create_call_list':
+ *common/cmd_trace.c|66| undefined reference to `trace_list_calls'
+ *|| common/built-in.o: In function `do_trace':
+ *common/cmd_trace.c|95| undefined reference to `trace_set_enabled'
+ *|| common/built-in.o: In function `create_func_list':
+ *common/cmd_trace.c|42| undefined reference to `trace_list_functions'
+ */
+
+/*-----------------------------------------------------------------------
  * Boot
  */
 
