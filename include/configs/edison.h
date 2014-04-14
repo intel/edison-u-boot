@@ -2,6 +2,13 @@
 #define _EDISON_H
 
 /*-----------------------------------------------------------------------
+ * Boot
+ */
+
+#define CONFIG_ZBOOT_32
+#define CONFIG_CMD_ZBOOT
+
+/*-----------------------------------------------------------------------
  * DEBUG
  */
 
@@ -115,7 +122,7 @@
 #define CONFIG_SYS_MMC_ENV_DEV                  0
 #define CONFIG_SYS_MMC_ENV_PART                 0
 #define CONFIG_ENV_SIZE                         (64*1024)
-#define CONFIG_ENV_OFFSET	5242880
+#define CONFIG_ENV_OFFSET	3145728
 #define CONFIG_ENV_OFFSET_REDUND 7340032
 #define CONFIG_CMD_SAVEENV
 #define CONFIG_CMD_RUN
