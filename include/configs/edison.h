@@ -5,6 +5,7 @@
  * Misc
  */
 
+#define CONFIG_CMD_ITEST
 #define CONFIG_CMD_ASKENV
 #define CONFIG_CMD_BDI
 #define CONFIG_CMD_BSP
@@ -250,6 +251,7 @@
 #define CONFIG_SYS_MAXARGS			128
 #define CONFIG_SYS_BARGSIZE			CONFIG_SYS_CBSIZE
 #define CONFIG_AUTO_COMPLETE
+#define CONFIG_SYS_HUSH_PARSER
 
 /*-----------------------------------------------------------------------
  * Board Features
