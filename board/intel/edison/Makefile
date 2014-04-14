@@ -1,1 +1,1 @@
-obj-y	+= edison_start.o
+obj-y	+= edison_start.o edison.o
