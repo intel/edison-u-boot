@@ -63,7 +63,7 @@
  */
 #define CONFIG_SYS_LONGHELP
 #define CONFIG_SYS_PROMPT			"boot > "
-#define CONFIG_SYS_CBSIZE			256
+#define CONFIG_SYS_CBSIZE			2048
 #define CONFIG_SYS_PBSIZE			(CONFIG_SYS_CBSIZE + \
 						 sizeof(CONFIG_SYS_PROMPT) + \
 						 16)
@@ -122,8 +122,8 @@
 #define CONFIG_SYS_MMC_ENV_DEV                  0
 #define CONFIG_SYS_MMC_ENV_PART                 0
 #define CONFIG_ENV_SIZE                         (64*1024)
-#define CONFIG_ENV_OFFSET	3145728
-#define CONFIG_ENV_OFFSET_REDUND 7340032
+#define CONFIG_ENV_OFFSET	(3 * 1024 * 1024)
+#define CONFIG_ENV_OFFSET_REDUND (6 * 1024 * 1024)
 #define CONFIG_CMD_SAVEENV
 #define CONFIG_CMD_RUN
 
