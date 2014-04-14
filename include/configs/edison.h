@@ -77,6 +77,8 @@
 #define CONFIG_SYS_LOAD_ADDR                   0x100000
 #define CONFIG_PHYSMEM
 
+#define CONFIG_SYS_CACHELINE_SIZE        64
+
 #define CONFIG_NR_DRAM_BANKS                    3
 
 #define CONFIG_SYS_STACK_SIZE			(32 * 1024)
@@ -113,5 +115,31 @@
 #define CONFIG_ENV_SIZE                         2048
 #define CONFIG_SYS_MMC_ENV_DEV                  1
 #define CONFIG_SYS_MMC_ENV_PART                 0
+
+/*-----------------------------------------------------------------------
+ * USB
+ */
+#define iounmap(x)
+#define CONFIG_USB_DWC3
+#define CONFIG_USB_DWC3_UDC_REGS (void *) 0xf9100000
+#define CONFIG_USB_DWC3_UDC_REGS_END (void *) 0xf9100400
+
+
+#define CONFIG_USB_DWC3_GADGET
+#define CONFIG_USB_DEVICE
+#define CONFIG_USB_GADGET
+#define CONFIG_USB_GADGET_VBUS_DRAW   2
+#define CONFIG_USB_GADGET_DUALSPEED
+
+#define CONFIG_USBDOWNLOAD_GADGET
+#define CONFIG_G_DNL_MANUFACTURER "Intel"
+#define CONFIG_G_DNL_VENDOR_NUM 0x8087
+#define CONFIG_G_DNL_PRODUCT_NUM 0xb6b6
+
+#define CONFIG_DFU_FUNCTION
+#define CONFIG_CMD_DFU
+#define CONFIG_DFU_MMC
+#define CONFIG_DFU_RAM
+
 
 #endif
