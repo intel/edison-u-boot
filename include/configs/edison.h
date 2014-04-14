@@ -12,7 +12,9 @@
  * DEBUG
  */
 
-#define DEBUG
+/*
+ *#define DEBUG
+ */
 
 /*
  *#define CONFIG_PRE_CONSOLE_BUFFER
