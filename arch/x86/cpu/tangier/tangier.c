@@ -26,7 +26,6 @@ int cpu_init_f(void)
 	/*
 	 *timestamp_init();
 	 */
-	init_scu_ipc();
 	return 0;
 }
 
@@ -37,6 +36,7 @@ int board_early_init_f(void)
 
 int board_early_init_r(void)
 {
+	init_scu_ipc();
 	return 0;
 }
 
