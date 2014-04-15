@@ -20,6 +20,7 @@
 #define _SFI_H
 
 #include <asm/arch/sysinfo.h>
+#include <asm/e820.h>
 
 /* Memory type definitions */
 enum sfi_mem_type {
@@ -112,7 +113,7 @@ unsigned long long sfi_get_max_usable_ram(struct sysinfo_t *info);
 
 #ifdef CONFIG_SFI
 extern phys_size_t sfi_get_ram_size(void);
-extern void sfi_setup_e820(struct boot_params *bp);
+extern unsigned sfi_setup_e820(unsigned max_entries, struct e820entry *entries);
 #endif
 
 #endif /* _SFI_H */
