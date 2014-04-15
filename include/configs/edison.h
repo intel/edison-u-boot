@@ -312,6 +312,7 @@
 #define CONFIG_ENV_OFFSET_REDUND (6 * 1024 * 1024)
 #define CONFIG_CMD_SAVEENV
 #define CONFIG_CMD_RUN
+#define CONFIG_SUPPORT_EMMC_BOOT
 
 /*-----------------------------------------------------------------------
  * USB
