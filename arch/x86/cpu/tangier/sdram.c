@@ -15,26 +15,19 @@
 #include <asm/sections.h>
 #include <asm/arch/sysinfo.h>
 #include <asm/arch/tables.h>
+#ifdef CONFIG_SFI
+#include <asm/sfi.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
 unsigned install_e820_map(unsigned max_entries, struct e820entry *entries)
 {
-	int i;
-
-	unsigned num_entries = min(lib_sysinfo.n_memranges, max_entries);
-	if (num_entries < lib_sysinfo.n_memranges) {
-		printf("Warning: Limiting e820 map to %d entries.\n",
-			num_entries);
-	}
-	for (i = 0; i < num_entries; i++) {
-		struct memrange *memrange = &lib_sysinfo.memrange[i];
-
-		entries[i].addr = memrange->base;
-		entries[i].size = memrange->size;
-		entries[i].type = memrange->type;
-	}
-	return num_entries;
+#ifdef CONFIG_SFI
+	return sfi_setup_e820(max_entries, entries);
+#else
+	return 0;
+#endif
 }
 
 /*
@@ -98,7 +91,9 @@ int dram_init_f(void)
  *    if (ram_size == 0)
  *        return -1;
  */
-	gd->ram_size = 0x000000003F4FFFFF;
+#ifdef CONFIG_SFI
+	gd->ram_size = sfi_get_ram_size();
+#endif
 	return 0;
 }
 
@@ -126,7 +121,6 @@ int dram_init_banksize(void)
  *3:      0000000000100000-0000000003FFFFFF (   1M -   64M) ram
  *5:      0000000006000000-000000003F4FFFFF (  96M - 1013M) ram
  */
-
 	gd->bd->bi_dram[0].start = 0x0;
 	gd->bd->bi_dram[0].size = 0x97FFF;
 

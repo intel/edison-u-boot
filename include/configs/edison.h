@@ -1,6 +1,8 @@
 #ifndef _EDISON_H
 #define _EDISON_H
 
+#define CONFIG_SFI
+
 /*-----------------------------------------------------------------------
  * Misc
  */
