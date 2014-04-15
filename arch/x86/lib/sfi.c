@@ -31,8 +31,8 @@ static int sfi_table_check(struct sfi_table_header *sbh)
 static unsigned long sfi_search_mmap(void)
 {
 	u32 i = 0;
-	u32 *pos = (u32 *)SFI_BASE_ADDR;
-	u32 *end = (u32 *)(SFI_BASE_ADDR + SFI_LENGTH);
+	u32 *pos = (u32 *) SFI_BASE_ADDR;
+	u32 *end = (u32 *) (SFI_BASE_ADDR + SFI_LENGTH);
 	struct sfi_table_header *sbh;
 	struct sfi_table *sb;
 	u32 sys_entry_cnt = 0;
@@ -59,9 +59,9 @@ static unsigned long sfi_search_mmap(void)
 	/* Search through each SYST entry for MMAP table */
 	for (i = 0; i < sys_entry_cnt; i++) {
 		sbh = (struct sfi_table_header *)sb->entry[i].low;
-		if (*(u32 *)sbh->signature == SFI_MMAP_MAGIC) {
+		if (*(u32 *) sbh->signature == SFI_MMAP_MAGIC) {
 			if (!sfi_table_check((struct sfi_table_header *)sbh))
-				return (unsigned long) sbh;
+				return (unsigned long)sbh;
 		}
 	}
 
