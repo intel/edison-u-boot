@@ -302,6 +302,7 @@
 #define CONFIG_SYS_PCAT_INTERRUPTS
 
 #define CONFIG_CMD_GETTIME
+#define CONFIG_INTEL_MID
 
 /*-----------------------------------------------------------------------
  * Environment
