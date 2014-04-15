@@ -16,8 +16,8 @@
  * MA 02111-1307 USA
  */
 
-#ifndef __INTEL_SFI_H
-#define __INTEL_SFI_H
+#ifndef _SFI_H
+#define _SFI_H
 
 #include <asm/arch/sysinfo.h>
 
@@ -49,17 +49,17 @@ struct sfi_mem_entry {
 	u64 vir_start;
 	u64 pages;
 	u64 attrib;
-}__attribute__((packed));
+} __attribute__ ((packed));
 
 struct sfi_apic_table_entry {
-	u64 phys_addr;  /* phy base addr for APIC reg */
-}__attribute__((packed));
+	u64 phys_addr;		/* phy base addr for APIC reg */
+} __attribute__ ((packed));
 
-struct sfi_timer_table_entry { 
-	u64 phys_addr;  /* phy base addr for the timer */
-	u32 freq_hz;    /* in HZ */
+struct sfi_timer_table_entry {
+	u64 phys_addr;		/* phy base addr for the timer */
+	u32 freq_hz;		/* in HZ */
 	u32 irq;
-}__attribute__((packed));
+} __attribute__ ((packed));
 
 struct sfi_table_header {
 	char signature[4];
@@ -68,7 +68,7 @@ struct sfi_table_header {
 	u8 checksum;
 	char oem_id[6];
 	char oem_table_id[8];
-}__attribute__((packed));
+} __attribute__ ((packed));
 
 struct sfi_quad_word {
 	u32 low;
@@ -81,7 +81,7 @@ struct sfi_table {
 		u64 pentry[1];
 		struct sfi_quad_word entry[1];
 	};
-}__attribute__((packed));
+} __attribute__ ((packed));
 
 #define SFI_TBL_HEADER_LEN      24
 
@@ -102,7 +102,7 @@ void sfi_parse_mtmr(void);
 struct sfi_timer_table_entry *sfi_get_mtmr(int hint);
 void fill_memranges_from_e820(struct sysinfo_t *info);
 
-#ifdef CONFIG_X86_IO_APIC 
+#ifdef CONFIG_X86_IO_APIC
 int sfi_parse_ioapic(void);
 #endif /* CONFIG_X86_IO_APIC */
 
@@ -115,4 +115,4 @@ extern phys_size_t sfi_get_ram_size(void);
 extern void sfi_setup_e820(struct boot_params *bp);
 #endif
 
-#endif /* __SFI_H__ */
+#endif /* _SFI_H */
