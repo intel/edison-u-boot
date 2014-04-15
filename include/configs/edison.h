@@ -186,6 +186,9 @@
 
 #define CONFIG_ZBOOT_32
 #define CONFIG_CMD_ZBOOT
+#define CONFIG_AUTOBOOT
+#define CONFIG_BOOTCOMMAND "run bootcmd"
+#define CONFIG_BOOTDELAY 3
 
 /*-----------------------------------------------------------------------
  * DEBUG
