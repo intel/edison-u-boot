@@ -22,7 +22,7 @@ static int sfi_table_check(struct sfi_table_header *sbh)
 		chksum += *pos++;
 
 	if (chksum)
-		printf("sfi: Invalid checksum\n");
+		error("sfi: Invalid checksum\n");
 
 	/* checksum is ok if zero */
 	return chksum;
@@ -46,7 +46,7 @@ static unsigned long sfi_search_mmap(void)
 	}
 
 	if (pos >= end) {
-		printf("failed to locate SFI SYST table\n");
+		error("failed to locate SFI SYST table\n");
 		return 0;
 	}
 
@@ -68,23 +68,22 @@ static unsigned long sfi_search_mmap(void)
 	return 0;
 }
 
-void sfi_setup_e820(struct boot_params *bp)
+unsigned sfi_setup_e820(unsigned max_entries, struct e820entry *entries)
 {
 	struct sfi_table *sb;
 	struct sfi_mem_entry *mentry;
 	unsigned long long start, end, size;
 	int i, num, type, total;
 
-	bp->e820_entries = 0;
 	total = 0;
 
 	/* search for sfi mmap table */
 	sb = (struct sfi_table *)sfi_search_mmap();
 	if (!sb) {
-		printf("failed to locate SFI MMAP table\n");
-		return;
+		error("failed to locate SFI MMAP table\n");
+		return 0;
 	}
-	printf("will use sfi mmap table for e820 table\n");
+	debug("will use sfi mmap table for e820 table\n");
 	num = SFI_GET_ENTRY_NUM(sb, sfi_mem_entry);
 	mentry = (struct sfi_mem_entry *)sb->pentry;
 
@@ -111,14 +110,14 @@ void sfi_setup_e820(struct boot_params *bp)
 
 		if (total == E820MAX)
 			break;
-		bp->e820_map[total].addr = start;
-		bp->e820_map[total].size = size;
-		bp->e820_map[total++].type = type;
+		entries[total].addr = start;
+		entries[total].size = size;
+		entries[total++].type = type;
 
 		mentry++;
 	}
 
-	bp->e820_entries = total;
+	return total;
 }
 
 phys_size_t sfi_get_ram_size(void)
@@ -132,10 +131,10 @@ phys_size_t sfi_get_ram_size(void)
 	/* search for sfi mmap table */
 	sb = (struct sfi_table *)sfi_search_mmap();
 	if (!sb) {
-		printf("failed to locate SFI MMAP table\n");
+		error("failed to locate SFI MMAP table\n");
 		return 0;
 	}
-	printf("will use sfi mmap table for e820 table\n");
+	debug("will use sfi mmap table for e820 table\n");
 	num = SFI_GET_ENTRY_NUM(sb, sfi_mem_entry);
 	mentry = (struct sfi_mem_entry *)sb->pentry;
 
@@ -157,7 +156,7 @@ phys_size_t sfi_get_ram_size(void)
 	/* round up to 512mb */
 	ram = (ram + (512 * 1024 * 1024 - 1)) & ~(512 * 1024 * 1024 - 1);
 
-	printf("ram size %llu\n", ram);
+	debug("ram size %llu\n", ram);
 
 	return ram;
 }
