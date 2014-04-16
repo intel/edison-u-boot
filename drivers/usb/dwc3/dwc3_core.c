@@ -37,6 +37,7 @@
  */
 
 #include <common.h>
+#include <watchdog.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -507,5 +508,6 @@ irqreturn_t dwc3_interrupt(int irq, void *_dwc);
 int usb_gadget_handle_interrupts(void)
 {
 	dwc3_interrupt(0, global_dwc3);
+	WATCHDOG_RESET();
 	return 0;
 }
