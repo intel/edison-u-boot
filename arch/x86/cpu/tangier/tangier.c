@@ -37,7 +37,6 @@ int board_early_init_f(void)
 
 int board_early_init_r(void)
 {
-	init_scu_ipc();
 	return 0;
 }
 
