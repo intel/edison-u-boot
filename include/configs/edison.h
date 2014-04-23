@@ -145,6 +145,7 @@
  *#define CONFIG_CMD_USB
  */
 #define CONFIG_CMD_FAT
+#define CONFIG_FAT_WRITE
 /*
  *#define EARLY_TRACE
  *#define FTRACE
