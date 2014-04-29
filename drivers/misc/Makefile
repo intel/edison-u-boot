@@ -23,4 +23,4 @@ obj-$(CONFIG_PDSP188x) += pdsp188x.o
 obj-$(CONFIG_STATUS_LED) += status_led.o
 obj-$(CONFIG_TWL4030_LED) += twl4030_led.o
 obj-$(CONFIG_FSL_IFC) += fsl_ifc.o
-obj-$(CONFIG_INTEL_SCU) += intel_scu_ipc.o  intel_scu_ipcutil.o intel_scu_mip.o
+obj-$(CONFIG_INTEL_SCU) += intel_scu_ipc.o
