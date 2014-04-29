@@ -6,7 +6,6 @@
 #include <watchdog.h>
 #include <asm/u-boot-x86.h>
 
-#define IPC_WATCHDOG 0xF8
 DECLARE_GLOBAL_DATA_PTR;
 
 #ifndef CONFIG_WATCHDOG_HEARTBEAT
@@ -44,10 +43,12 @@ void watchdog_reset(void)
 
 int watchdog_disable(void)
 {
-	return (intel_scu_ipc_simple_command(IPC_WATCHDOG, SCU_WATCHDOG_STOP));
+	return (intel_scu_ipc_simple_command(IPCMSG_WATCHDOG_TIMER,
+				SCU_WATCHDOG_STOP));
 }
 
 int watchdog_init(void)
 {
-	return (intel_scu_ipc_simple_command(IPC_WATCHDOG, SCU_WATCHDOG_START));
+	return (intel_scu_ipc_simple_command(IPCMSG_WATCHDOG_TIMER,
+				SCU_WATCHDOG_START));
 }
