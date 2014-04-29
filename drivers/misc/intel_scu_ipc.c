@@ -2,40 +2,13 @@
 #include <asm/io.h>
 #include <asm-generic/errno.h>
 #include <intel_scu_ipc.h>
-#include <intel_scu_ipcutil.h>
 
-#define WATCHDOG_IPC_CMD 0xF8
-
-#define IPC_STATUS_ADDR         0X04
+#define IPC_STATUS_ADDR         0x04
 #define IPC_SPTR_ADDR           0x08
 #define IPC_DPTR_ADDR           0x0C
 #define IPC_READ_BUFFER         0x90
 #define IPC_WRITE_BUFFER        0x80
 #define IPC_IOC			0x100
-
-u8 intel_readb_scu_register(u32 module_addr, u32 offset)
-{
-	return readb(CONFIG_SCU_BASE_ADDR + module_addr + offset);
-}
-
-struct vrtc_info read_vrtc_info(void)
-{
-	struct vrtc_info vinfo;
-
-	vinfo.vrtc1_sec = intel_readb_scu_register(VRTC_REG, VRTC1_SEC);
-	vinfo.vrtc1_sec_alarm = intel_readb_scu_register(VRTC_REG, VRTC1_SEC_A);
-	vinfo.vrtc1_min = intel_readb_scu_register(VRTC_REG, VRTC1_MIN);
-	vinfo.vrtc1_min_alarm = intel_readb_scu_register(VRTC_REG, VRTC1_MIN_A);
-	vinfo.vrtc1_hour = intel_readb_scu_register(VRTC_REG, VRTC1_HOU);
-	vinfo.vrtc1_hour_alarm =
-	    intel_readb_scu_register(VRTC_REG, VRTC1_HOU_A);
-	vinfo.vrtc1_day_week = intel_readb_scu_register(VRTC_REG, VRTC1_DAY_W);
-	vinfo.vrtc1_day_month = intel_readb_scu_register(VRTC_REG, VRTC1_DAY_M);
-	vinfo.vrtc1_month = intel_readb_scu_register(VRTC_REG, VRTC1_MON);
-	vinfo.vrtc1_year = intel_readb_scu_register(VRTC_REG, VRTC1_YEA);
-
-	return vinfo;
-}
 
 /*
  * Command Register (Write Only):
@@ -151,7 +124,7 @@ int intel_scu_ipc_raw_cmd(u32 cmd, u32 sub, u8 * in, u8 inlen, u32 * out,
 	* as the unit of input data size because of some historical
 	* reasons and SCU FW is doing so.
 	*/
-	if ((cmd & 0xFF) == WATCHDOG_IPC_CMD)
+	if ((cmd & 0xFF) == IPCMSG_WATCHDOG_TIMER)
 		inlen = (inlen + 3) / 4;
 
 	intel_scu_ipc_send_command((inlen << 16) | (sub << 12) | cmd);
