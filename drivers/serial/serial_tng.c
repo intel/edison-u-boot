@@ -175,6 +175,10 @@ void _serial_putc(const char c, const int dev_index)
 		cpu_relax();
 
 	writeb(c, SERIAL_BASE_ADDR + TXR);
+
+	/* If \n, also do \r */
+	if (c == '\n')
+		serial_putc('\r');
 }
 
 static inline void serial_putc_dev(unsigned int dev_index, const char c)
