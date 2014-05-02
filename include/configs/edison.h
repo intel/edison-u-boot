@@ -237,16 +237,12 @@
 #define CONFIG_DOS_PARTITION
 #define CONFIG_MAC_PARTITION
 
-/*
- * part uuid mmc 0 disk_uuid
- * gpt write mmc 0 uuid_disk=${disk_uuid}\;name=boot,start=33571840,size=128M,uuid=80868086-8086-8086-8086-000000000000\;
- * gpt write mmc 0 uuid_disk=${disk_uuid}\;name=boot2,start=33571840,size=128M,uuid=80868086-8086-8086-8086-000000000000\;name=panic,size=8M,uuid=80868086-8086-8086-8086-000000000001;
- */
 #define CONFIG_CMD_GPT
 #define CONFIG_CMD_PART
 #define CONFIG_CMD_EXT4
 #define CONFIG_CMD_EXT4_WRITE
 #define CONFIG_PARTITION_UUIDS
+#define CONFIG_RANDOM_UUID
 
 /*
  * Miscellaneous configurable options
