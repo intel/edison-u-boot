@@ -42,6 +42,7 @@ static disk_partition_t cur_part_info;
 #define DOS_BOOT_MAGIC_OFFSET	0x1fe
 #define DOS_FS_TYPE_OFFSET	0x36
 #define DOS_FS32_TYPE_OFFSET	0x52
+#define DOS_PART_TBL_OFFSET	0x1be
 
 static int disk_read(__u32 block, __u32 nr_blocks, void *buf)
 {
@@ -76,7 +77,37 @@ int fat_set_blk_dev(block_dev_desc_t *dev_desc, disk_partition_t *info)
 		return 0;
 	if (!memcmp(buffer + DOS_FS32_TYPE_OFFSET, "FAT32", 5))
 		return 0;
-
+#ifdef CONFIG_FAT_MBR_SCAN
+	/* Test if it could be an MBR, and update start block to the
+	 * first available primary partition
+	 */
+	unsigned char *part_desc = (buffer + DOS_PART_TBL_OFFSET);
+	int i = 0;
+	for (i = 0; i < 4; i++, part_desc+=16) {
+		/* Check part type to be a primary FAT partition*/
+		if ((*(part_desc+4) == 0x1) || (*(part_desc+4) == 0x4) ||
+			(*(part_desc+4) == 0x6) || (*(part_desc+4) == 0xb) ||
+			(*(part_desc+4) == 0xc) || (*(part_desc+4) == 0xe) ){
+			int lba_start = (*(part_desc + 8 + 3) << 24) +
+			(*(part_desc + 8 + 2) << 16) +
+			(*(part_desc + 8 + 1) << 8) +
+			*(part_desc + 8 + 0);
+			int lba_size = (*(part_desc + 12 + 3) << 24) +
+			(*(part_desc + 12 + 2) << 16) +
+			(*(part_desc + 12 + 1) << 8) +
+			*(part_desc + 12 + 0);
+			debug("Found partition in MBR lba start:%d lba size:%d\n",
+					lba_start, lba_size);
+			debug("Old partition info lba start:"LBAFU" size:"LBAFU"\n",
+					cur_part_info.start, cur_part_info.size);
+			cur_part_info.start += lba_start;
+			cur_part_info.size = lba_size;
+			debug("New partition info lba start:"LBAFU" size:"LBAFU"\n",
+					cur_part_info.start, cur_part_info.size);
+			return 0;
+		}
+	}
+#endif
 	cur_dev = NULL;
 	return -1;
 }
@@ -185,7 +216,7 @@ static __u32 get_fatent(fsdata *mydata, __u32 entry)
 	}
 
 	debug("FAT%d: entry: 0x%04x = %d, offset: 0x%04x = %d\n",
-	       mydata->fatsize, entry, entry, offset, offset);
+			mydata->fatsize, entry, entry, offset, offset);
 
 	/* Read a new block of FAT entries into the cache. */
 	if (bufnum != mydata->fatbufnum) {
@@ -246,7 +277,7 @@ static __u32 get_fatent(fsdata *mydata, __u32 entry)
 		break;
 	}
 	debug("FAT%d: ret: %08x, offset: %04x\n",
-	       mydata->fatsize, ret, offset);
+			mydata->fatsize, ret, offset);
 
 	return ret;
 }
