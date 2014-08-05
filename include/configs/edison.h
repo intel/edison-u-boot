@@ -165,6 +165,8 @@
 #define CONFIG_AUTO_COMPLETE
 #define CONFIG_SYS_HUSH_PARSER
 
+#define CONFIG_SHA1
+#define CONFIG_CMD_SHA1SUM
 /*-----------------------------------------------------------------------
  * Board Features
  */
