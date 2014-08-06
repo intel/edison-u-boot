@@ -15,6 +15,7 @@
 #include <asm/msr.h>
 #include <asm/arch/intel-mid.h>
 #include <intel_scu_ipc.h>
+#include <u-boot/md5.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -42,6 +43,29 @@ int board_early_init_r(void)
 
 int board_final_cleanup(void)
 {
+
+	return 0;
+}
+
+int board_late_init(void)
+{
+	if (!getenv("serial#")) {
+
+		struct mmc *mmc = find_mmc_device(0);
+		unsigned char emmc_ssn[16];
+		char ssn[33];
+
+		if (mmc) {
+			int i;
+
+			md5((unsigned char *)mmc->cid, sizeof(mmc->cid), emmc_ssn);
+
+			for (i = 0; i < 16; i++)
+				snprintf(&(ssn[2*i]), 3, "%02x", emmc_ssn[i]);
+
+			setenv("serial#", ssn);
+		}
+	}
 
 	return 0;
 }

@@ -11,6 +11,8 @@
 
 #define CONFIG_INTEL_MID
 #define CONFIG_SFI
+#define CONFIG_BOARD_LATE_INIT
+#define CONFIG_MD5
 
 #undef CONFIG_CMD_SF_TEST
 
