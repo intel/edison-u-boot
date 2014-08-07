@@ -28,7 +28,9 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	char *usb_controller = argv[1];
 	char *interface = argv[2];
 	char *devstring = argv[3];
-
+#ifdef CONFIG_DFU_TIMEOUT
+	ulong dfu_timeout = 0 * 1000;
+#endif
 	int ret, i = 0;
 #ifdef CONFIG_DFU_TFTP
 	unsigned long addr = 0;
@@ -49,11 +51,20 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		dfu_show_entities();
 		goto done;
 	}
+#ifdef CONFIG_DFU_TIMEOUT
+	if (argc > 4)
+		dfu_timeout = simple_strtoul(argv[4], NULL, 0) * 1000 ;
+#endif
 
 	int controller_index = simple_strtoul(usb_controller, NULL, 0);
 	board_usb_init(controller_index, USB_INIT_DEVICE);
 	g_dnl_clear_detach();
 	g_dnl_register("usb_dnl_dfu");
+#ifdef CONFIG_DFU_TIMEOUT
+	ulong time_activity_start = get_timer(0);
+	ulong time_inactivity_start = time_activity_start + dfu_timeout;
+	ulong next_print_time = 0;
+#endif
 	while (1) {
 		if (g_dnl_detach()) {
 			/*
@@ -75,9 +86,34 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 				goto exit;
 		}
 
+#ifdef CONFIG_DFU_TIMEOUT
+		if (dfu_enum_done() && (time_inactivity_start != time_activity_start))
+		{
+			time_inactivity_start = time_activity_start;
+			debug("\nDFU connection established\n");
+		}
+#endif
+
 		if (ctrlc())
 			goto exit;
 
+#ifdef CONFIG_DFU_TIMEOUT
+		if (time_activity_start != time_inactivity_start)
+		{
+			ulong cur_time = get_timer(time_activity_start);
+
+			if ( cur_time > dfu_timeout )
+			{
+				debug("\nInactivity Timeout, Abort Dfu\n");
+				goto exit;
+			}
+			if ( next_print_time == 0 || (get_timer(next_print_time)> 800))
+			{
+				debug("\rAborting in %lu sec", (dfu_timeout - cur_time)/1000);
+				next_print_time = get_timer(0);
+			}
+		}
+#endif
 		WATCHDOG_RESET();
 		usb_gadget_handle_interrupts(controller_index);
 	}
@@ -97,11 +133,18 @@ done:
 
 U_BOOT_CMD(dfu, CONFIG_SYS_MAXARGS, 1, do_dfu,
 	"Device Firmware Upgrade",
+#ifdef CONFIG_DFU_TIMEOUT
+	"<USB_controller> <interface> <dev> [list|timeout]\n"
+#else
 	"<USB_controller> <interface> <dev> [list]\n"
+#endif
 	"  - device firmware upgrade via <USB_controller>\n"
 	"    on device <dev>, attached to interface\n"
 	"    <interface>\n"
 	"    [list] - list available alt settings\n"
+#ifdef CONFIG_DFU_TIMEOUT
+	"    [timeout] - specify inactivity timeout in sec, doesn't work whit list"
+#endif
 #ifdef CONFIG_DFU_TFTP
 	"dfu tftp <interface> <dev> [<addr>]\n"
 	"  - device firmware upgrade via TFTP\n"
