@@ -601,6 +601,7 @@ dfu_handle(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		    (w_value >> 8) == DFU_DT_FUNC) {
 			value = min(len, (u16) sizeof(dfu_func));
 			memcpy(req->buf, &dfu_func, value);
+			dfu_trigger_enum_done();
 		}
 	} else /* DFU specific request */
 		value = dfu_state[f_dfu->dfu_state] (f_dfu, ctrl, gadget, req);

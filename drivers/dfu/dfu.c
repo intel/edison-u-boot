@@ -17,6 +17,7 @@
 #include <linux/compiler.h>
 
 static bool dfu_reset_request;
+static bool dfu_enum_request;
 static LIST_HEAD(dfu_list);
 static int dfu_alt_num;
 static int alt_num_cnt;
@@ -29,6 +30,16 @@ bool dfu_reset(void)
 void dfu_trigger_reset()
 {
 	dfu_reset_request = true;
+}
+
+bool dfu_enum_done(void)
+{
+	return dfu_enum_request;
+}
+
+void dfu_trigger_enum_done()
+{
+	dfu_enum_request = true;
 }
 
 static int dfu_find_alt_num(const char *s)
@@ -61,6 +72,7 @@ int dfu_init_env_entities(char *interface, int dev)
 		return ret;
 	}
 
+	dfu_enum_request = false;
 	free(env_bkp);
 	return 0;
 }
