@@ -64,8 +64,30 @@ int board_late_init(void)
 				snprintf(&(ssn[2*i]), 3, "%02x", emmc_ssn[i]);
 
 			setenv("serial#", ssn);
+#if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_ENV_IS_NOWHERE)
+			saveenv();
+#endif
 		}
 	}
+
+	if (!getenv("hardware_id")) {
+		union ipc_ifwi_version v;
+		int ret;
+		char hardware_id[4];
+
+		ret = intel_scu_ipc_command(IPCMSG_GET_FW_REVISION, 1,
+				NULL, 0, (u32 *) &(v.raw[0]), 4);
+		if (ret < 0) {
+			printf("Can't retrieve hardware revision\n");
+		}
+
+		snprintf(hardware_id, sizeof(hardware_id), "%02X", v.fw.hardware_id);
+		setenv("hardware_id", hardware_id);
+#if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_ENV_IS_NOWHERE)
+		saveenv();
+#endif
+	}
+
 
 	return 0;
 }
