@@ -14,6 +14,7 @@
 #include <asm/arch/mmc.h>
 #include <asm/msr.h>
 #include <asm/arch/intel-mid.h>
+#include <asm/arch/timestamp.h>
 #include <intel_scu_ipc.h>
 #include <u-boot/md5.h>
 
@@ -22,11 +23,11 @@ DECLARE_GLOBAL_DATA_PTR;
 /*
  * Miscellaneous platform dependent initializations
  */
-int cpu_init_f(void)
+int arch_cpu_init(void)
 {
-	/*
-	 *timestamp_init();
-	 */
+#ifdef CONFIG_SYS_X86_TSC_TIMER
+	timer_set_base(rdtsc());
+#endif
 
 	return x86_cpu_init_f();
 }
