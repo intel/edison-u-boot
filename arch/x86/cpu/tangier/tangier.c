@@ -55,6 +55,7 @@ int board_late_init(void)
 		struct mmc *mmc = find_mmc_device(0);
 		unsigned char emmc_ssn[16];
 		char ssn[33];
+		char usb_gadget_addr[18];
 
 		if (mmc) {
 			int i;
@@ -64,6 +65,10 @@ int board_late_init(void)
 			for (i = 0; i < 16; i++)
 				snprintf(&(ssn[2*i]), 3, "%02x", emmc_ssn[i]);
 
+			snprintf(&(usb_gadget_addr[0]), sizeof(usb_gadget_addr),
+					"02:00:86:%02x:%02x:%02x", emmc_ssn[13], emmc_ssn[14],
+					emmc_ssn[15]);
+			setenv("usb0addr", usb_gadget_addr);
 			setenv("serial#", ssn);
 #if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_ENV_IS_NOWHERE)
 			saveenv();
