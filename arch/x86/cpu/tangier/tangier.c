@@ -15,6 +15,7 @@
 #include <asm/msr.h>
 #include <asm/arch/intel-mid.h>
 #include <asm/arch/timestamp.h>
+#include <asm/arch/intel_soc_mrfld.h>
 #include <intel_scu_ipc.h>
 #include <u-boot/md5.h>
 
@@ -34,6 +35,66 @@ int arch_cpu_init(void)
 
 int board_early_init_f(void)
 {
+	return 0;
+}
+
+static int pmu_read_status(void)
+{
+	struct mrst_pmu_reg *const pmu_reg =
+		(struct mrst_pmu_reg *)CONFIG_SYS_TANGIER_PMU_BASE;
+	int pmu_busy_retry = 500000;
+	u32 temp;
+	union pmu_pm_status result;
+
+	do {
+		temp = readl(&pmu_reg->pm_sts);
+
+		/* extract the busy bit */
+		result.pmu_status_value = temp;
+
+		if (result.pmu_status_parts.pmu_busy == 0)
+			return 0;
+
+		udelay(1);
+	} while (--pmu_busy_retry);
+
+	return -EBUSY;
+}
+
+int power_init_board(void)
+{
+	struct mrst_pmu_reg *const pmu_reg =
+		(struct mrst_pmu_reg *)CONFIG_SYS_TANGIER_PMU_BASE;
+	u32 pm_ssc[4];
+	int i;
+
+	/* check pmu status. */
+	if (pmu_read_status()) {
+		printf("WARNING : PMU is busy.\n");
+		return -EBUSY;
+	}
+
+	/* read pmu values. */
+	for (i = 0 ; i < 4 ; i++)
+		pm_ssc[i] = readl(&pmu_reg->pm_sss[i]);
+
+	/* modify pmu values. */
+	/* enable SDIO0, sdhci for SD card*/
+	pm_ssc[0] &= ~(0x3<<(PMU_SDIO0_LSS_01*2));
+
+	/* wrtie modified pmu values. */
+	for (i = 0 ; i < 4 ; i++)
+		writel(pm_ssc[i], &pmu_reg->pm_ssc[i]);
+
+	/* update modified pmu values. */
+	writel(0x00002201, &pmu_reg->pm_cmd);
+
+	/* check pmu status. */
+	if (pmu_read_status()) {
+		printf("WARNING : PMU is busy.\n");
+		return -EBUSY;
+	}
+
 	return 0;
 }
 
@@ -109,10 +170,16 @@ int print_cpuinfo(void)
 
 int board_mmc_init(bd_t * bis)
 {
-	int index = 0;
-	unsigned int base = CONFIG_SYS_EMMC_PORT_BASE + (0x40000 * index);
+	int err;
 
-	return tangier_sdhci_init(base, index, 4);
+	/* add sdhci for eMMC */
+	err = tangier_sdhci_init(CONFIG_SYS_EMMC_PORT_BASE, 0, 4);
+
+	if (err)
+		return err;
+
+	/* add sdhci for SD card */
+	return tangier_sdhci_init(CONFIG_SYS_SD_PORT_BASE, 0, 4);
 }
 
 /* ovveride get_tbclk_mhz code see tsc_timer */
