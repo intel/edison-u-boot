@@ -21,7 +21,10 @@
 #include <common.h>
 #include <linux/compiler.h>
 
+#include <dm.h>
+#include <errno.h>
 #include <serial.h>
+#include <watchdog.h>
 
 #define cpu_relax() asm volatile("rep; nop")
 
@@ -153,10 +156,8 @@ static int serial_shutdown_dev(const int dev_index)
  */
 int _serial_getc(const int dev_index)
 {
-	while ((readb(SERIAL_BASE_ADDR + LSR) & LSR_DR) == 0) {
-		if (gd->have_console)
-			break;
-	}
+	if ((readb(SERIAL_BASE_ADDR + LSR) & LSR_DR) == 0)
+		return -EAGAIN;
 
 	return readb(SERIAL_BASE_ADDR + RXR) & 0xff;
 }
@@ -169,21 +170,25 @@ static inline int serial_getc_dev(unsigned int dev_index)
 /*
  * Output a single byte to the serial port.
  */
-void _serial_putc(const char c, const int dev_index)
+int _serial_putc(const char c, const int dev_index)
 {
-	while ((readb(SERIAL_BASE_ADDR + LSR) & XMTRDY) == 0)
-		cpu_relax();
+	if ((readb(SERIAL_BASE_ADDR + LSR) & XMTRDY) == 0)
+		return -EAGAIN;
 
 	writeb(c, SERIAL_BASE_ADDR + TXR);
 
 	/* If \n, also do \r */
-	if (c == '\n')
+	if (c == '\n') {
+		WATCHDOG_RESET();
 		serial_putc('\r');
+	}
+
+	return 0;
 }
 
-static inline void serial_putc_dev(unsigned int dev_index, const char c)
+static inline int serial_putc_dev(unsigned int dev_index, const char c)
 {
-	_serial_putc(c, dev_index);
+	return _serial_putc(c, dev_index);
 }
 
 /*
@@ -212,41 +217,65 @@ static inline void serial_puts_dev(int dev_index, const char *s)
 	return _serial_puts(s, dev_index);
 }
 
-DECLARE_TNG_SERIAL_FUNCTIONS(0);
-struct serial_device tng_serial0_device =
-INIT_TNG_SERIAL_STRUCTURE(0, "tng_serial0");
-DECLARE_TNG_SERIAL_FUNCTIONS(1);
-struct serial_device tng_serial1_device =
-INIT_TNG_SERIAL_STRUCTURE(1, "tng_serial1");
-DECLARE_TNG_SERIAL_FUNCTIONS(2);
-struct serial_device tng_serial2_device =
-INIT_TNG_SERIAL_STRUCTURE(2, "tng_serial2");
-
-__weak struct serial_device *default_serial_console(void)
-{
 #if defined(CONFIG_SYS_TNG_SERIAL0)
-	return &tng_serial0_device;
+DECLARE_TNG_SERIAL_FUNCTIONS(0);
 #elif defined(CONFIG_SYS_TNG_SERIAL1)
-	return &tng_serial1_device;
+DECLARE_TNG_SERIAL_FUNCTIONS(1);
 #elif defined(CONFIG_SYS_TNG_SERIAL2)
-	return &tng_serial2_device;
-#else
-#error "CONFIG_SERIAL? missing."
+DECLARE_TNG_SERIAL_FUNCTIONS(2);
 #endif
-}
 
-void tng_serial_initialize(void)
-{
+static int tng_serial_probe(struct udevice *dev) {
 #if defined(CONFIG_SYS_TNG_SERIAL0)
 	serial_init_dev(0);
-	serial_register(&tng_serial0_device);
-#endif
-#if defined(CONFIG_SYS_TNG_SERIAL1)
+#elif defined(CONFIG_SYS_TNG_SERIAL1)
 	serial_init_dev(1);
-	serial_register(&tng_serial1_device);
-#endif
-#if defined(CONFIG_SYS_TNG_SERIAL2)
+#elif defined(CONFIG_SYS_TNG_SERIAL2)
 	serial_init_dev(2);
-	serial_register(&tng_serial2_device);
+#endif
+	return 0;
+}
+
+static int tng_serial_putc(struct udevice *dev, const char ch) {
+#if defined(CONFIG_SYS_TNG_SERIAL0)
+	return serial_putc_dev(0, ch);
+#elif defined(CONFIG_SYS_TNG_SERIAL1)
+	return serial_putc_dev(1, ch);
+#elif defined(CONFIG_SYS_TNG_SERIAL2)
+	return serial_putc_dev(2, ch);
+#else
+	#error
 #endif
 }
+
+static int tng_serial_getc(struct udevice *dev) {
+#if defined(CONFIG_SYS_TNG_SERIAL0)
+	return serial_getc_dev(0);
+#elif defined(CONFIG_SYS_TNG_SERIAL1)
+	return serial_getc_dev(1);
+#elif defined(CONFIG_SYS_TNG_SERIAL2)
+	return serial_getc_dev(2);
+#else
+	#error
+#endif
+}
+
+const struct dm_serial_ops tng_serial_ops = {
+	.putc = tng_serial_putc,
+	.getc = tng_serial_getc,
+};
+
+
+static const struct udevice_id tng_serial_ids[] = {
+	{ .compatible = "intel,tng-uart" },
+	{ }
+};
+
+U_BOOT_DRIVER(serial_tng_drv) = {
+	.name	= "serial_tng_drv",
+	.id	= UCLASS_SERIAL,
+	.of_match = tng_serial_ids,
+	.probe  = tng_serial_probe,
+	.ops	= &tng_serial_ops,
+	.priv_auto_alloc_size = sizeof(int),
+};
