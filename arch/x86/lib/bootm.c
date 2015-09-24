@@ -170,12 +170,13 @@ int boot_linux_kernel(ulong setup_base, ulong load_address, bool image_64bit)
 		*/
 #ifndef CONFIG_EFI_APP
 		__asm__ __volatile__ (
+		"xor %%ebx, %%ebx\n"
 		"movl $0, %%ebp\n"
 		"cli\n"
 		"jmp *%[kernel_entry]\n"
 		:: [kernel_entry]"a"(load_address),
 		[boot_params] "S"(setup_base),
-		"b"(0), "D"(0)
+		"D"(0)
 		);
 #endif
 	}
