@@ -17,6 +17,6 @@
 	};
 
 	serial: serial {
-		compatible = "tng,uart";
+		compatible = "intel,tng-uart";
 	};
 };
