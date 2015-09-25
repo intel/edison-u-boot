@@ -260,9 +260,26 @@ static int tng_serial_getc(struct udevice *dev) {
 #endif
 }
 
+static int tng_serial_pending(struct udevice *dev, bool input)
+{
+	if (input)
+#if defined(CONFIG_SYS_TNG_SERIAL0)
+		return serial_tstc_dev(0);
+#elif defined(CONFIG_SYS_TNG_SERIAL1)
+		return serial_tstc_dev(1);
+#elif defined(CONFIG_SYS_TNG_SERIAL2)
+		return serial_tstc_dev(2);
+#else
+	#error
+#endif
+	else
+		return 0;
+}
+
 const struct dm_serial_ops tng_serial_ops = {
-	.putc = tng_serial_putc,
 	.getc = tng_serial_getc,
+	.pending = tng_serial_pending,
+	.putc = tng_serial_putc,
 };
 
 
