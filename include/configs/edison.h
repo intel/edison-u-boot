@@ -9,6 +9,11 @@
 
 #include <configs/x86-common.h>
 
+#undef CONFIG_BOOTARGS
+#define CONFIG_BOOTARGS ""
+#undef CONFIG_BOOTCOMMAND
+#define CONFIG_BOOTCOMMAND ""
+
 #define CONFIG_INTEL_MID
 #define CONFIG_SFI
 #define CONFIG_BOARD_LATE_INIT
