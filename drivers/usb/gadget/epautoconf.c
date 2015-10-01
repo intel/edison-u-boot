@@ -261,6 +261,7 @@ struct usb_ep *usb_ep_autoconfig(
 		ep = find_ep(gadget, "ep1-bulk");
 		if (ep && ep_matches(gadget, ep, desc))
 			return ep;
+#if 0
 	} else if (gadget_is_dwc3(gadget)) {
 		const char *name = NULL;
 		/*
@@ -283,10 +284,15 @@ struct usb_ep *usb_ep_autoconfig(
 			ep = find_ep(gadget, name);
 		if (ep && ep_matches(gadget, ep, desc))
 			return ep;
+#endif
 	}
 
 	/* Second, look at endpoints until an unclaimed one looks usable */
 	list_for_each_entry(ep, &gadget->ep_list, ep_list) {
+                /* ep1in and ep8in are reserved for DWC3 device controller */
+                if (!strncmp(ep->name, "ep1in", 5) ||
+                    !strncmp(ep->name, "ep8in", 5))
+                        continue;
 		if (ep_matches(gadget, ep, desc))
 			return ep;
 	}
