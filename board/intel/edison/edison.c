@@ -34,6 +34,7 @@ static struct dwc3_device dwc3_device_data = {
 int usb_gadget_handle_interrupts(int controller_index)
 {
 	dwc3_uboot_handle_interrupt(controller_index);
+	WATCHDOG_RESET();
 	return 0;
 }
 
