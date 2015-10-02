@@ -43,13 +43,13 @@
 #define DRIVER_VERSION		"usb_dnl 2.0"
 
 static const char product[] = "USB download gadget";
-static char g_dnl_serial[MAX_STRING_SERIAL];
+static char g_dnl_serial[MAX_STRING_SERIAL+1];
 static const char manufacturer[] = CONFIG_G_DNL_MANUFACTURER;
 
 void g_dnl_set_serialnumber(char *s)
 {
 	memset(g_dnl_serial, 0, MAX_STRING_SERIAL);
-	if (strlen(s) < MAX_STRING_SERIAL)
+	if (strlen(s) <= MAX_STRING_SERIAL)
 		strncpy(g_dnl_serial, s, strlen(s));
 }
 
