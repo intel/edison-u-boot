@@ -19,4 +19,9 @@
 	serial: serial {
 		compatible = "intel,tng-uart";
 	};
+
+	config {
+		bootcmd = "boot_brillo";
+		bootsecure = <1>;
+	};
 };
