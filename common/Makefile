@@ -221,6 +221,8 @@ obj-$(CONFIG_CMD_PMIC) += cmd_pmic.o
 obj-$(CONFIG_CMD_REGULATOR) += cmd_regulator.o
 endif
 
+obj-$(CONFIG_CMD_BOOT_BRILLO) += cmd_boot_brillo.o
+
 ifdef CONFIG_SPL_BUILD
 obj-$(CONFIG_ENV_IS_IN_FLASH) += env_flash.o
 obj-$(CONFIG_SPL_YMODEM_SUPPORT) += xyzModem.o

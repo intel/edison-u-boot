@@ -647,4 +647,10 @@ config CMD_TPM_TEST
 
 endmenu
 
+config CMD_BOOT_BRILLO
+	bool "Enable the 'boot_brillo' command"
+	default n
+	help
+	  This command implements the boot logic for Brillo booting.
+
 endmenu
