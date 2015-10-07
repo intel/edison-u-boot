@@ -296,6 +296,11 @@ static int brillo_boot_ab(void)
 static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 		char * const argv[])
 {
+#ifdef CONFIG_BRILLO_FASTBOOT_ONLY
+	brillo_do_fastboot();
+	brillo_do_reset();
+#endif
+
 	char *reboot_target = board_get_reboot_target();
 	if (!strcmp(reboot_target, "fastboot")) {
 		brillo_do_fastboot();
