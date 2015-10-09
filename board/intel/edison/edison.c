@@ -82,6 +82,11 @@ int watchdog_init(void)
 
 char* board_get_reboot_target(void)
 {
+	uint8_t recovery_mode_gpio = !(*(uint8_t*)0xff00800b & 0x20);
+
+	if (recovery_mode_gpio)
+		return "fastboot";
+
 	uint8_t target = *(uint8_t*)0xfffff807;
 	*(uint8_t*)0xfffff807 = 0;
 	*(uint8_t*)0xfffff81f += target;
@@ -89,7 +94,6 @@ char* board_get_reboot_target(void)
 	intel_scu_ipc_raw_cmd(0xe4, 0, NULL, 0, NULL, 0, 0, 0xffffffff);
 
 	switch (target) {
-	case 0x0c: return "recovery";
 	case 0x0e: return "fastboot";
 	default: return "";
 	}
