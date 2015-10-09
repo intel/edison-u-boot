@@ -220,14 +220,6 @@ static void brillo_do_reset(void)
 	hang();
 }
 
-static void brillo_boot_recovery(void)
-{
-	if (load_boot_image(get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE),
-			"recovery"))
-		return;
-	boot_image();
-}
-
 static int brillo_boot_ab(void)
 {
 	struct boot_ctrl metadata;
@@ -305,14 +297,9 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 	if (!strcmp(reboot_target, "fastboot")) {
 		brillo_do_fastboot();
 		brillo_do_reset();
-	} else if (!strcmp(reboot_target, "recovery")) {
-		brillo_boot_recovery();
-		brillo_do_reset();
 	}
 
 	brillo_boot_ab();
-
-	brillo_boot_recovery();
 
 	brillo_do_fastboot();
 
