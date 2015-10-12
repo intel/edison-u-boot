@@ -118,7 +118,7 @@ int board_late_init(void)
 		char ssn[33];
 		char usb_gadget_addr[18];
 
-		if (mmc) {
+		if (mmc && !mmc_init(mmc)) {
 			int i;
 
 			md5((unsigned char *)mmc->cid, sizeof(mmc->cid), emmc_ssn);
