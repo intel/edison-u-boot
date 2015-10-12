@@ -207,8 +207,10 @@ static void brillo_do_fastboot(void)
 {
 	char *fastboot_args[] = {NULL, "0"};
 	cmd_tbl_t *fastboot_cmd = find_cmd("fastboot");
-	if (fastboot_cmd)
+	if (fastboot_cmd) {
+		printf("FASTBOOT MODE...\n");
 		fastboot_cmd->cmd(fastboot_cmd, 0, 2, fastboot_args);
+	}
 }
 
 static void brillo_do_reset(void)
