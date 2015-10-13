@@ -6,15 +6,19 @@
 
 #include <config.h>
 #include <common.h>
+#include <errno.h>
 #include <fb_mmc.h>
 #include <part.h>
 #include <aboot.h>
 #include <sparse_format.h>
 #include <mmc.h>
+#include <memalign.h>
 
 #ifndef CONFIG_FASTBOOT_GPT_NAME
 #define CONFIG_FASTBOOT_GPT_NAME GPT_ENTRY_NAME
 #endif
+
+#define ONE_MiB (1024 * 1024)
 
 /* The 64 defined bytes plus the '\0' */
 #define RESPONSE_LEN	(64 + 1)
@@ -31,6 +35,135 @@ void fastboot_okay(const char *s)
 {
 	strncpy(response_str, "OKAY\0", 5);
 	strncat(response_str, s, RESPONSE_LEN - 4 - 1);
+}
+
+__weak int board_verify_gpt_parts(struct gpt_frag *frag)
+{
+	return 0;
+}
+
+__weak int board_populate_mbr_boot_code(legacy_mbr *mbr)
+{
+	return 0;
+}
+
+static int verify_gpt_frag(struct gpt_frag *frag, unsigned int frag_size)
+{
+	if (frag->magic != GPT_FRAG_MAGIC)
+		return -EINVAL;
+	if (frag->start_lba != 0)
+		return -EINVAL;
+	if (frag->num_parts > GPT_ENTRY_NUMBERS)
+		return -EINVAL;
+
+	if (frag_size != sizeof(*frag) +
+			sizeof(frag->parts[0]) * frag->num_parts)
+		return -EINVAL;
+
+	if (board_verify_gpt_parts(frag))
+		return -EINVAL;
+
+	return 0;
+}
+
+static int build_and_write_gpt(block_dev_desc_t *dev, void *_frag,
+		unsigned int frag_size)
+{
+	struct gpt_frag *frag = _frag;
+	struct gpt_frag_part *i, *expandable_part;
+	lbaint_t one_mib_blocks = BLOCK_CNT(ONE_MiB, dev);
+	lbaint_t loc, usable_blocks, part_blocks;
+	size_t bufsz = dev->blksz * 2 +
+		sizeof(gpt_entry) * GPT_ENTRY_NUMBERS;
+	void *buf = NULL;
+	legacy_mbr *mbr;
+	gpt_header *gpt_h;
+	gpt_entry *gpt_e;
+	int ret = -EINVAL;
+
+	if (verify_gpt_frag(frag, frag_size))
+		return -EINVAL;
+
+	buf = calloc(1, bufsz);
+	if (!buf)
+		return -ENOMEM;
+
+	mbr = (legacy_mbr*)buf;
+	gpt_h = buf + dev->blksz;
+	gpt_e = buf + dev->blksz * 2;
+
+	/* Populate MBR */
+	if ((ret = board_populate_mbr_boot_code(mbr)))
+		goto error;
+
+	mbr->partition_record[0].sys_ind = EFI_PMBR_OSTYPE_EFI_GPT;
+	mbr->partition_record[0].start_sect = 1;
+	if (dev->lba > 0xffffffff)
+		mbr->partition_record[0].nr_sects = 0xffffffff;
+	else
+		mbr->partition_record[0].nr_sects = dev->lba - 1;
+	mbr->signature = MSDOS_MBR_SIGNATURE;
+
+	/* Populate GPT Header */
+	gpt_h->signature = GPT_HEADER_SIGNATURE;
+	gpt_h->revision = GPT_HEADER_REVISION_V1;
+	gpt_h->header_size = sizeof(*gpt_h);
+	gpt_h->my_lba = GPT_PRIMARY_PARTITION_TABLE_LBA;
+	gpt_h->alternate_lba = dev->lba - 1;
+	gpt_h->first_usable_lba = BLOCK_CNT(bufsz, dev);
+	gpt_h->last_usable_lba = dev->lba - BLOCK_CNT(bufsz, dev);
+	gen_rand_uuid((void*)&gpt_h->disk_guid);
+	gpt_h->partition_entry_lba = 2;
+	gpt_h->num_partition_entries = frag->num_parts;
+	gpt_h->sizeof_partition_entry = GPT_ENTRY_SIZE;
+
+	/* There may be one partition with size <= 0. We will adjust
+	 * this partition to take up the remainder of the disk not
+	 * used by other partitiones */
+	usable_blocks = gpt_h->last_usable_lba - one_mib_blocks + 1;
+	usable_blocks = (usable_blocks / one_mib_blocks) * one_mib_blocks;
+
+	part_blocks = 0;
+	expandable_part = NULL;
+	for(i = frag->parts; i < frag->parts + frag->num_parts; i++) {
+		if (i->size_mib > 0)
+			part_blocks += one_mib_blocks * i->size_mib;
+		else if (!expandable_part)
+			expandable_part = i;
+		else
+			goto error;
+	}
+
+	if (expandable_part)
+		expandable_part->size_mib =
+			(usable_blocks - part_blocks) / one_mib_blocks;
+
+	/* Populate GPT Entries Array */
+	loc = one_mib_blocks;
+	for(i = frag->parts; i < frag->parts + frag->num_parts; i++, gpt_e++) {
+		lbaint_t ending_lba =
+			loc + i->size_mib * one_mib_blocks - 1;
+
+		memcpy(&gpt_e->partition_type_guid, i->type_guid,
+			sizeof(efi_guid_t));
+		memcpy(&gpt_e->unique_partition_guid, i->part_guid,
+			sizeof(efi_guid_t));
+		gpt_e->starting_lba = loc;
+		gpt_e->ending_lba = ending_lba;
+		memcpy(gpt_e->partition_name, i->label,
+			sizeof(gpt_e->partition_name));
+
+		loc = ending_lba + 1;
+	}
+
+	gpt_h->partition_entry_array_crc32 = crc32(0, buf + dev->blksz * 2,
+		gpt_h->num_partition_entries * gpt_h->sizeof_partition_entry);
+	gpt_h->header_crc32 = crc32(0, (void*)gpt_h, gpt_h->header_size);
+
+	ret = write_mbr_and_gpt_partitions(dev, buf);
+error:
+	free(buf);
+	return ret;
 }
 
 static int get_partition_info_efi_by_name_or_alias(block_dev_desc_t *dev_desc,
@@ -106,15 +239,10 @@ void fb_mmc_flash_write(const char *cmd, void *download_buffer,
 	if (strcmp(cmd, CONFIG_FASTBOOT_GPT_NAME) == 0) {
 		printf("%s: updating MBR, Primary and Backup GPT(s)\n",
 		       __func__);
-		if (is_valid_gpt_buf(dev_desc, download_buffer)) {
-			printf("%s: invalid GPT - refusing to write to flash\n",
-			       __func__);
-			fastboot_fail("invalid GPT partition");
-			return;
-		}
-		if (write_mbr_and_gpt_partitions(dev_desc, download_buffer)) {
-			printf("%s: writing GPT partitions failed\n", __func__);
-			fastboot_fail("writing GPT partitions failed");
+		if (build_and_write_gpt(dev_desc, download_buffer,
+				download_bytes)) {
+			printf("%s: Failed to flash GPT\n", __func__);
+			fastboot_fail("failed to flash GPT");
 			return;
 		}
 		printf("........ success\n");

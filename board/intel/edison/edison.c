@@ -6,6 +6,8 @@
 #include <intel_scu_ipc.h>
 #include <watchdog.h>
 #include <asm/u-boot-x86.h>
+#include <part_efi.h>
+#include <fb_mmc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -14,6 +16,31 @@ DECLARE_GLOBAL_DATA_PTR;
 #else
 #define WATCHDOG_HEARTBEAT CONFIG_WATCHDOG_HEARTBEAT
 #endif
+
+#define OSIP_MAGIC 0x24534f24;
+struct osii_entry {
+	uint16_t os_rev_minor;
+	uint16_t os_rev_major;
+	uint32_t image_lba;
+	uint32_t load_address;
+	uint32_t start_address;
+	uint32_t image_size_blocks;
+	uint8_t  attribute;
+	uint8_t  reserved3[3];
+} __attribute__((packed));
+
+struct osip {
+	uint32_t osip_magic;
+	uint8_t  reserved;
+	uint8_t  version_minor;
+	uint8_t  version_major;
+	uint8_t  header_checksum;
+	uint8_t  number_of_pointers;
+	uint8_t  number_of_images;
+	uint16_t header_size;
+	uint32_t reserved2[5];
+	struct osii_entry osii[0];
+} __attribute__((packed));
 
 enum {
 	SCU_WATCHDOG_START = 0,
@@ -97,4 +124,52 @@ char* board_get_reboot_target(void)
 	case 0x0e: return "fastboot";
 	default: return "";
 	}
+}
+
+int board_verify_gpt_parts(struct gpt_frag *frag)
+{
+	uint8_t u_boot_label[] = {
+		'u', 0, '-', 0, 'b', 0, 'o', 0, 'o', 0, 't', 0, 0, 0,
+	};
+	uint8_t factory_label[] = {
+		'f', 0, 'a', 0, 'c', 0, 't', 0, 'o', 0, 'r', 0, 'y', 0, 0, 0,
+	};
+
+	if (memcmp(u_boot_label, frag->parts[0].label, sizeof(u_boot_label)))
+		return -EINVAL;
+	if (frag->parts[0].size_mib != 6)
+		return -EINVAL;
+
+	if (memcmp(factory_label, frag->parts[1].label, sizeof(factory_label)))
+		return -EINVAL;
+	if (frag->parts[1].size_mib != 1)
+		return -EINVAL;
+
+	return 0;
+}
+
+int board_populate_mbr_boot_code(legacy_mbr *mbr)
+{
+	struct osip *osip = (struct osip*)mbr->boot_code;
+	uint8_t *i, checksum = 0;
+
+	osip->osip_magic                = OSIP_MAGIC;
+	osip->version_major             = 1;
+	osip->version_minor             = 0;
+	osip->number_of_pointers        = 1;
+	osip->number_of_images          = 1;
+	osip->header_size               = sizeof(*osip) + sizeof(osip->osii[0]);
+	osip->osii[0].image_lba         = 0x00000800; /* 1 MiB */
+	osip->osii[0].load_address      = 0x01100000;
+	osip->osii[0].start_address     = 0x01101000;
+	osip->osii[0].image_size_blocks = 0x00003000; /* 6 MiB */
+	osip->osii[0].attribute         = 0x0000000f;
+
+	for (i = (uint8_t*)osip; i < ((uint8_t*)osip) + osip->header_size; i++)
+		checksum ^= *i;
+	osip->header_checksum = checksum;
+
+	memset(&osip->osii[1], 0xff, sizeof(struct osii_entry) * 14);
+
+	return 0;
 }
