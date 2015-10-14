@@ -5,6 +5,7 @@
 #include <command.h>
 #include <errno.h>
 #include <memalign.h>
+#include <android_bootloader.h>
 
 #define BOOT_SIGNATURE_MAX_SIZE 4096
 
@@ -12,11 +13,7 @@
 #define CONFIG_BRILLO_MMC_BOOT_DEVICE CONFIG_FASTBOOT_FLASH_MMC_DEV
 #endif
 
-#define METADATA_PARTITION_NAME "misc"
 #define SLOT_SUFFIX_STR "androidboot.slot_suffix="
-
-/* Boot control data starts at 2048 byte offset from start of misc */
-#define BOOTCTRL_METADATA_OFFSET    2048
 
 #define BOOTCTRL_SUFFIX_A           "_a"
 #define BOOTCTRL_SUFFIX_B           "_b"
@@ -27,18 +24,20 @@ struct slot_metadata {
 	uint8_t priority : 4;
 	uint8_t tries_remaining : 3;
 	uint8_t successful_boot : 1;
-	uint8_t padding[3];
 } __attribute__((packed));
 
+#define BOOT_CTRL_MAGIC 0x42424100
+
 struct boot_ctrl {
-	/* Magic for identification - 'A' 'B' 'B' (Boot Contrl Magic) */
-	uint8_t magic[3];
+	/* Magic for identification - '\0ABB' (Boot Contrl Magic) */
+	uint32_t magic;
 
 	/* Version of struct. */
 	uint8_t version;
 
 	/* Information about each slot. */
 	struct slot_metadata slot_info[2];
+	uint8_t recovery_tries_remaining;
 } __attribute__((packed));
 
 /* To be overridden by whatever the board's implementation is of
@@ -49,9 +48,7 @@ __weak char* board_get_reboot_target(void) { return NULL; }
 /* Properly initialise the metadata partition */
 static void ab_init_default_metadata(struct boot_ctrl *ctrl)
 {
-	ctrl->magic[0] = 'A';
-	ctrl->magic[1] = 'B';
-	ctrl->magic[2] = 'B';
+	ctrl->magic = BOOT_CTRL_MAGIC;
 	ctrl->version = 1;
 
 	ctrl->slot_info[0].priority = 2;
@@ -61,57 +58,58 @@ static void ab_init_default_metadata(struct boot_ctrl *ctrl)
 	ctrl->slot_info[1].priority = 1;
 	ctrl->slot_info[1].tries_remaining = 1;
 	ctrl->slot_info[1].successful_boot = 0;
+
+	ctrl->recovery_tries_remaining = 7;
 }
 
-static int ab_read_metadata(block_dev_desc_t *dev, disk_partition_t *meta_part,
-		struct boot_ctrl *metadata)
+static int ab_read_bootloader_message(block_dev_desc_t *dev,
+		disk_partition_t *misc_part, struct bootloader_message *msg)
 {
 	void *tmp;
-	lbaint_t blkcnt, start;
+	lbaint_t blkcnt;
+	struct boot_ctrl *ctrl = (struct boot_ctrl*)&msg->slot_suffix;
 
-	blkcnt = BLOCK_CNT(sizeof(*metadata), dev);
-	start = meta_part->start + BLOCK_CNT(BOOTCTRL_METADATA_OFFSET, dev);
+	blkcnt = BLOCK_CNT(sizeof(*msg), dev);
 	tmp = calloc(blkcnt, dev->blksz);
 
 	if (!tmp)
 		return -ENOMEM;
 
-	if (dev->block_read(dev->dev, start, blkcnt, tmp) != blkcnt) {
+	if (dev->block_read(dev->dev, misc_part->start, blkcnt, tmp)
+			!= blkcnt) {
 		free(tmp);
 		return -EIO;
 	}
 
-	memcpy(metadata, tmp, sizeof(*metadata));
+	memcpy(msg, tmp, sizeof(*msg));
 	free(tmp);
 
 	/* Check if the metadata is correct. */
-	if (metadata->magic[0] != 'A' ||
-			metadata->magic[1] != 'B' ||
-			metadata->magic[2] != 'B') {
-		printf("WARNING: A/B Selector Metadata is not initialised or corrupted,"
-			" using defaults\n");
-		ab_init_default_metadata(metadata);
+	if (ctrl->magic != BOOT_CTRL_MAGIC) {
+		printf("WARNING: A/B Selector Metadata is not initialised"
+		       " or corrupted, using defaults\n");
+		ab_init_default_metadata(ctrl);
 	}
 
 	return 0;
 }
 
-static int ab_write_metadata(block_dev_desc_t *dev, disk_partition_t *meta_part,
-		struct boot_ctrl *metadata)
+static int ab_write_bootloader_message(block_dev_desc_t *dev,
+		disk_partition_t *misc_part, struct bootloader_message *msg)
 {
 	void *tmp;
-	lbaint_t blkcnt, start;
+	lbaint_t blkcnt;
 
-	blkcnt = BLOCK_CNT(sizeof(*metadata), dev);
-	start = meta_part->start + BLOCK_CNT(BOOTCTRL_METADATA_OFFSET, dev);
+	blkcnt = BLOCK_CNT(sizeof(*msg), dev);
 	tmp = calloc(blkcnt, dev->blksz);
 
 	if (!tmp)
 		return -ENOMEM;
 
-	memcpy(tmp, metadata, sizeof(*metadata));
+	memcpy(tmp, msg, sizeof(*msg));
 
-	if (dev->block_write(dev->dev, start, blkcnt, tmp) != blkcnt) {
+	if (dev->block_write(dev->dev, misc_part->start, blkcnt, tmp)
+			!= blkcnt) {
 		free(tmp);
 		return -EIO;
 	}
@@ -164,6 +162,7 @@ static int load_boot_image(block_dev_desc_t *dev, const char *part_name)
 static void append_to_bootargs(const char *str) {
 	char *bootargs = getenv("bootargs");
 	if (!bootargs) {
+		if (*str == ' ') str++;
 		setenv("bootargs", str);
 		return;
 	}
@@ -224,31 +223,32 @@ static void brillo_do_reset(void)
 
 static int brillo_boot_ab(void)
 {
-	struct boot_ctrl metadata;
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
-	disk_partition_t meta_part;
+	disk_partition_t misc_part;
 	int ret, index, slots_by_priority[2] = {0, 1};
 	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
-	char *boot_part = "boot" BOOTCTRL_SUFFIX_A;
+	char boot_part[8];
+	char *old_bootargs;
 
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
 		return -ENODEV;
 
-	if (get_partition_info_efi_by_name(dev, METADATA_PARTITION_NAME,
-			&meta_part))
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
 		return -ENOENT;
 
-	if ((ret = ab_read_metadata(dev, &meta_part, &metadata)))
+	if ((ret = ab_read_bootloader_message(dev, &misc_part, &message)))
 		return ret;
 
-	if (metadata.slot_info[1].priority > metadata.slot_info[0].priority) {
+	if (metadata->slot_info[1].priority > metadata->slot_info[0].priority) {
 		slots_by_priority[0] = 1;
 		slots_by_priority[1] = 0;
 	}
 
 	for (index = 0; index < ARRAY_SIZE(slots_by_priority); index++) {
 		int slot_num = slots_by_priority[index];
-		struct slot_metadata *slot = &metadata.slot_info[slot_num];
+		struct slot_metadata *slot = &metadata->slot_info[slot_num];
 
 		if (slot->successful_boot == 0 && slot->tries_remaining == 0) {
 			/* This is a failed slot, lower priority to zero */
@@ -256,7 +256,7 @@ static int brillo_boot_ab(void)
 		} else {
 			/* either previously successful or tries
 			   remaining. attempt to boot. */
-			snprintf(boot_part, strlen(boot_part) + 1, "boot%s",
+			snprintf(boot_part, sizeof(boot_part), "boot%s",
 				suffixes[slot_num]);
 			if (load_boot_image(dev, boot_part)) {
 				/* Failed to load, mark as failed */
@@ -266,23 +266,38 @@ static int brillo_boot_ab(void)
 			}
 			if (slot->tries_remaining > 0)
 				slot->tries_remaining--;
+			metadata->recovery_tries_remaining = 7;
 
+			old_bootargs = strdup(getenv("bootargs"));
 			append_to_bootargs(" " SLOT_SUFFIX_STR);
 			append_to_bootargs(suffixes[slot_num]);
 
-			ab_write_metadata(dev, &meta_part, &metadata);
+			ab_write_bootloader_message(dev, &misc_part, &message);
 			boot_image();
 
-			/* return from boot_image() indicates that we
-			   failed to start booting. Continue to next
-			   slot, or possibly on to recovery if no other
-			   slots are valid. */
+			/* Failed to boot, mark as failed */
+			setenv("bootargs", old_bootargs);
+			slot->tries_remaining = 0;
+			slot->priority = 0;
+			ab_write_bootloader_message(dev, &misc_part, &message);
 		}
 	}
 
-	/* Failed to boot any partition. Write metadata in case we
-	   updated priority of failed partitions. */
-	ab_write_metadata(dev, &meta_part, &metadata);
+	/* Failed to boot any partition. Try recovery. */
+	if (metadata->recovery_tries_remaining > 0) {
+		metadata->recovery_tries_remaining--;
+		if (load_boot_image(dev, "recovery")) {
+			/* Failed to load, set remaining tries to zero */
+			metadata->recovery_tries_remaining = 0;
+			ab_write_bootloader_message(dev, &misc_part, &message);
+			return -ENOENT;
+		}
+		ab_write_bootloader_message(dev, &misc_part, &message);
+		boot_image();
+		/* Failed to boot, set remaining tries to zero */
+		metadata->recovery_tries_remaining = 0;
+		ab_write_bootloader_message(dev, &misc_part, &message);
+	}
 
 	return -ENOENT;
 }
@@ -293,6 +308,7 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 #ifdef CONFIG_BRILLO_FASTBOOT_ONLY
 	brillo_do_fastboot();
 	brillo_do_reset();
+	hang();
 #endif
 
 	char *reboot_target = board_get_reboot_target();
@@ -303,6 +319,8 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 
 	brillo_boot_ab();
 
+	/* Return from boot_ab means normal and recovery via disk
+	 * failed. Here we do fastboot as 'Diskless Recovery' */
 	brillo_do_fastboot();
 
 	brillo_do_reset();
