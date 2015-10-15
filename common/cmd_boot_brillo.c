@@ -305,6 +305,18 @@ static void brillo_do_reset(void)
 	hang();
 }
 
+static int brillo_setup_bootargs(void)
+{
+	char serial_arg[56] = "androidboot.serialno=";
+	char *serial;
+
+	serial = getenv("serial#");
+	if (serial) {
+		strncat(serial_arg, serial, sizeof(serial_arg) - strlen(serial_arg) - 1);
+		setenv("bootargs", serial_arg);
+	}
+}
+
 static int brillo_boot_ab(void)
 {
 	struct bootloader_message message;
@@ -405,6 +417,8 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 		brillo_do_fastboot();
 		brillo_do_reset();
 	}
+
+	brillo_setup_bootargs();
 
 	brillo_boot_ab();
 
