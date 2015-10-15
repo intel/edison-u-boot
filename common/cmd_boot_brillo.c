@@ -146,7 +146,7 @@ static int ab_write_bootloader_message(block_dev_desc_t *dev,
 		disk_partition_t *misc_part, struct bootloader_message *msg)
 {
 	void *tmp;
-	lbaint_t blkcnt;
+	lbaint_t blkcnt, i;
 
 	blkcnt = BLOCK_CNT(sizeof(*msg), dev);
 	tmp = calloc(blkcnt, dev->blksz);
@@ -156,10 +156,12 @@ static int ab_write_bootloader_message(block_dev_desc_t *dev,
 
 	memcpy(tmp, msg, sizeof(*msg));
 
-	if (dev->block_write(dev->dev, misc_part->start, blkcnt, tmp)
-			!= blkcnt) {
-		free(tmp);
-		return -EIO;
+	for (i = 0; i < blkcnt; i++) {
+		if (dev->block_write(dev->dev, misc_part->start + i, 1,
+				tmp + i * dev->blksz) != 1) {
+			free(tmp);
+			return -EIO;
+		}
 	}
 
 	free(tmp);
@@ -302,12 +304,16 @@ static int brillo_boot_ab(void)
 			/* This is a failed slot, lower priority to zero */
 			slot->priority = 0;
 		} else {
+			if (!slot->priority)
+				continue;
+
 			/* either previously successful or tries
 			   remaining. attempt to boot. */
 			snprintf(boot_part, sizeof(boot_part), "boot%s",
 				suffixes[slot_num]);
 			if (load_boot_image(dev, boot_part)) {
 				/* Failed to load, mark as failed */
+				slot->successful_boot = 0;
 				slot->tries_remaining = 0;
 				slot->priority = 0;
 				continue;
@@ -325,6 +331,7 @@ static int brillo_boot_ab(void)
 
 			/* Failed to boot, mark as failed */
 			setenv("bootargs", old_bootargs);
+			slot->successful_boot = 0;
 			slot->tries_remaining = 0;
 			slot->priority = 0;
 			ab_write_bootloader_message(dev, &misc_part, &message);
