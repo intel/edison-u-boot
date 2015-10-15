@@ -356,6 +356,42 @@ static int strcmp_l1(const char *s1, const char *s2)
 	return strncmp(s1, s2, strlen(s1));
 }
 
+static void var_partition_type(const char *part, char *response)
+{
+	block_dev_desc_t *dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	disk_partition_t info;
+
+	if (!dev) {
+		strcpy(response, "FAILfailed to read mmc");
+		return;
+	}
+
+	if (get_partition_info_efi_by_name(dev, part, &info)) {
+		strcpy(response, "FAILpartition not found");
+		return;
+	}
+
+	snprintf(response, RESPONSE_LEN, "OKAY%s", info.type);
+}
+
+static void var_partition_size(const char *part, char *response)
+{
+	block_dev_desc_t *dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	disk_partition_t info;
+
+	if (!dev) {
+		fastboot_tx_write_str("FAILfailed to read mmc");
+		return;
+	}
+
+	if (get_partition_info_efi_by_name(dev, part, &info)) {
+		fastboot_tx_write_str("FAILpartition not found");
+		return;
+	}
+
+	snprintf(response, RESPONSE_LEN, "OKAY0x%016llx", info.size * info.blksz);
+}
+
 static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 {
 	char *cmd = req->buf;
@@ -389,6 +425,10 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 			strncat(response, s, chars_left);
 		else
 			strcpy(response, "FAILValue not set");
+	} else if (!strcmp_l1("partition-type", cmd)) {
+		var_partition_type(cmd + 15, response);
+	} else if (!strcmp_l1("partition-size", cmd)) {
+		var_partition_size(cmd + 15, response);
 	} else {
 		error("unknown variable: %s\n", cmd);
 		strcpy(response, "FAILVariable not implemented");

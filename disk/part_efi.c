@@ -22,6 +22,11 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+uint8_t linux_data_guid[] = {
+	0xaf, 0x3d, 0xc6, 0x0f, 0x83, 0x84, 0x72, 0x47,
+	0x8e, 0x79, 0x3d, 0x69, 0xd8, 0x47, 0x7d, 0xe4,
+};
+
 #ifdef HAVE_BLOCK_DEVICE
 /**
  * efi_crc32() - EFI version of crc32 function
@@ -277,7 +282,11 @@ int get_partition_info_efi(block_dev_desc_t * dev_desc, int part,
 
 	sprintf((char *)info->name, "%s",
 			print_efiname(&gpt_pte[part - 1]));
-	sprintf((char *)info->type, "U-Boot");
+	if (!memcmp(linux_data_guid, gpt_pte[part - 1].partition_type_guid.b,
+			sizeof(linux_data_guid)))
+		sprintf((char *)info->type, "ext4");
+	else
+		sprintf((char *)info->type, "emmc");
 	info->bootable = is_bootable(&gpt_pte[part - 1]);
 #ifdef CONFIG_PARTITION_UUIDS
 	uuid_bin_to_str(gpt_pte[part - 1].unique_partition_guid.b, info->uuid,
