@@ -123,7 +123,7 @@ int board_late_init(void)
 
 			md5((unsigned char *)mmc->cid, sizeof(mmc->cid), emmc_ssn);
 
-			for (i = 0; i < 16; i++)
+			for (i = 0; i < 4; i++)
 				snprintf(&(ssn[2*i]), 3, "%02x", emmc_ssn[i]);
 
 			snprintf(&(usb_gadget_addr[0]), sizeof(usb_gadget_addr),
