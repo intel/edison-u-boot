@@ -126,6 +126,18 @@ char* board_get_reboot_target(void)
 	}
 }
 
+int fb_set_reboot_flag(void)
+{
+	uint8_t previous_target = *(uint8_t*)0xfffff807;
+	*(uint8_t*)0xfffff807 = 0x0e;
+	*(uint8_t*)0xfffff81f += previous_target - 0x0e;
+
+	intel_scu_ipc_raw_cmd(0xe4, 0, NULL, 0, NULL, 0, 0, 0xffffffff);
+
+	return 0;
+}
+
+
 int board_verify_gpt_parts(struct gpt_frag *frag)
 {
 	uint8_t u_boot_label[] = {
