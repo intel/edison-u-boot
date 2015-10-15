@@ -20,6 +20,7 @@
 #include <linux/compiler.h>
 #include <version.h>
 #include <g_dnl.h>
+#include <cmd_boot_brillo.h>
 #ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
 #include <fb_mmc.h>
 #endif
@@ -551,21 +552,32 @@ static void cb_flash(struct usb_ep *ep, struct usb_request *req)
 }
 #endif
 
+static void cb_set_active(struct usb_ep *ep, struct usb_request *req)
+{
+	unsigned long slot;
+
+	if (strict_strtoul(req->buf + 11, 10, &slot) || slot < 0 || slot > 1) {
+		fastboot_tx_write_str("FAILinvalid slot number");
+		return;
+	}
+
+	if (ab_set_active(slot)) {
+		fastboot_tx_write_str("FAILcouldn't set_active");
+		return;
+	}
+
+	fastboot_tx_write_str("OKAY");
+}
+
 static void cb_oem(struct usb_ep *ep, struct usb_request *req)
 {
 	char *cmd = req->buf;
-#ifdef CONFIG_FASTBOOT_FLASH
-	if (strncmp("format", cmd + 4, 6) == 0) {
-		char cmdbuf[32];
-                sprintf(cmdbuf, "gpt write mmc %x $partitions",
-			CONFIG_FASTBOOT_FLASH_MMC_DEV);
-                if (run_command(cmdbuf, 0))
-			fastboot_tx_write_str("FAIL");
-                else
-			fastboot_tx_write_str("OKAY");
-	} else
-#endif
-	if (strncmp("unlock", cmd + 4, 8) == 0) {
+	if (strncmp("set_active", cmd + 4, 10) == 0) {
+		req->buf += 4;
+		cb_set_active(ep, req);
+		req->buf -= 4;
+	}
+	else if (strncmp("unlock", cmd + 4, 8) == 0) {
 		fastboot_tx_write_str("FAILnot implemented");
 	}
 	else {
@@ -629,6 +641,10 @@ static const struct cmd_dispatch_info cmd_dispatch_info[] = {
 	{
 		.cmd = "oem",
 		.cb = cb_oem,
+	},
+	{
+		.cmd = "set_active",
+		.cb = cb_set_active,
 	},
 };
 

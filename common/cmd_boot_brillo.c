@@ -99,15 +99,15 @@ static void ab_init_default_metadata(struct boot_ctrl *ctrl)
 	ctrl->magic = BOOT_CTRL_MAGIC;
 	ctrl->version = 1;
 
-	ctrl->slot_info[0].priority = 2;
+	ctrl->slot_info[0].priority = 0;
 	ctrl->slot_info[0].tries_remaining = 0;
-	ctrl->slot_info[0].successful_boot = 1;
+	ctrl->slot_info[0].successful_boot = 0;
 
-	ctrl->slot_info[1].priority = 1;
-	ctrl->slot_info[1].tries_remaining = 1;
+	ctrl->slot_info[1].priority = 0;
+	ctrl->slot_info[1].tries_remaining = 0;
 	ctrl->slot_info[1].successful_boot = 0;
 
-	ctrl->recovery_tries_remaining = 7;
+	ctrl->recovery_tries_remaining = 0;
 }
 
 static int ab_read_bootloader_message(block_dev_desc_t *dev,
@@ -165,6 +165,40 @@ static int ab_write_bootloader_message(block_dev_desc_t *dev,
 	}
 
 	free(tmp);
+	return 0;
+}
+
+int ab_set_active(int slot_num)
+{
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
+	struct slot_metadata *slot = &metadata->slot_info[slot_num];
+	struct slot_metadata *other_slot = &metadata->slot_info[slot_num ^ 1];
+	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	int ret;
+
+	if (slot_num < 0 || slot_num > 1)
+		return -EINVAL;
+
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
+		return -ENODEV;
+
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
+		return -ENOENT;
+
+	if ((ret = ab_read_bootloader_message(dev, &misc_part, &message)))
+		return ret;
+
+	slot->priority = 15;
+	slot->tries_remaining = 7;
+	slot->successful_boot = 0;
+	if (other_slot->priority == 15)
+		other_slot->priority = 14;
+
+	if ((ret = ab_write_bootloader_message(dev, &misc_part, &message)))
+		return ret;
+
 	return 0;
 }
 
