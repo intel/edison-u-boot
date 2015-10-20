@@ -56,6 +56,7 @@
 #include <android_bootloader.h>
 
 #define BOOT_SIGNATURE_MAX_SIZE 4096
+#define BOOT_MAX_IMAGE_SIZE (32 * 1024 * 1024) /* 32 MiB */
 
 #ifndef CONFIG_BRILLO_MMC_BOOT_DEVICE
 #define CONFIG_BRILLO_MMC_BOOT_DEVICE CONFIG_FASTBOOT_FLASH_MMC_DEV
@@ -229,12 +230,15 @@ static int load_boot_image(block_dev_desc_t *dev, const char *part_name)
 
 	rest = ((void*)hdr) + (hdr_blkcnt * dev->blksz);
 
-	rest_blkcnt = BLOCK_CNT(hdr->page_size
-		+ ROUND(hdr->kernel_size,  hdr->page_size)
-		+ ROUND(hdr->ramdisk_size, hdr->page_size)
-		+ ROUND(hdr->second_size,  hdr->page_size)
-		+ BOOT_SIGNATURE_MAX_SIZE,
+	rest_blkcnt = BLOCK_CNT((uint64_t)hdr->page_size
+		+ (uint64_t)ROUND(hdr->kernel_size,  hdr->page_size)
+		+ (uint64_t)ROUND(hdr->ramdisk_size, hdr->page_size)
+		+ (uint64_t)ROUND(hdr->second_size,  hdr->page_size)
+		+ (uint64_t)BOOT_SIGNATURE_MAX_SIZE,
 		dev) - hdr_blkcnt;
+
+	if (hdr_blkcnt + rest_blkcnt > BLOCK_CNT(BOOT_MAX_IMAGE_SIZE, dev))
+		return -EINVAL;
 
 	if (dev->block_read(dev->dev, boot_part.start + hdr_blkcnt,
 			rest_blkcnt, rest) != rest_blkcnt)
