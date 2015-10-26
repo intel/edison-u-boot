@@ -1,0 +1,7 @@
+The source for these binaries may be obtained from:
+  git clone https://github.com/01org/edison-u-boot --branch brillo-v2015.10
+
+To bulid these binaries from the github sources:
+  - checkout the above u-boot repo somehwere
+  - run: "source build/envsetup.sh" in a Brillo tree
+  - run the script "build_for_brillo.sh" from the top level of the u-boot repo
