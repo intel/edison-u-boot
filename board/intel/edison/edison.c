@@ -154,14 +154,23 @@ int board_verify_gpt_parts(struct gpt_frag *frag)
 		'f', 0, 'a', 0, 'c', 0, 't', 0, 'o', 0, 'r', 0, 'y', 0, 0, 0,
 	};
 
+	uint8_t security_label[] = {
+		's', 0, 'e', 0, 'c', 0, 'u', 0, 'r', 0, 'i', 0, 't', 0, 'y', 0, 0, 0,
+	};
+
 	if (memcmp(u_boot_label, frag->parts[0].label, sizeof(u_boot_label)))
 		return -EINVAL;
-	if (frag->parts[0].size_mib != 6)
+	if (frag->parts[0].size_mib != 5)
 		return -EINVAL;
 
 	if (memcmp(factory_label, frag->parts[1].label, sizeof(factory_label)))
 		return -EINVAL;
 	if (frag->parts[1].size_mib != 1)
+		return -EINVAL;
+
+	if (memcmp(security_label, frag->parts[2].label, sizeof(security_label)))
+		return -EINVAL;
+	if (frag->parts[2].size_mib != 1)
 		return -EINVAL;
 
 	return 0;
@@ -181,7 +190,7 @@ int board_populate_mbr_boot_code(legacy_mbr *mbr)
 	osip->osii[0].image_lba         = 0x00000800; /* 1 MiB */
 	osip->osii[0].load_address      = 0x01100000;
 	osip->osii[0].start_address     = 0x01101000;
-	osip->osii[0].image_size_blocks = 0x00003000; /* 6 MiB */
+	osip->osii[0].image_size_blocks = 0x00002800; /* 5 MiB */
 	osip->osii[0].attribute         = 0x0000000f;
 
 	for (i = (uint8_t*)osip; i < ((uint8_t*)osip) + osip->header_size; i++)
