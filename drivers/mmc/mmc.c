@@ -1819,6 +1819,93 @@ int mmc_initialize(bd_t *bis)
 	return 0;
 }
 
+int mmc_get_wp_status(struct mmc *mmc, lbaint_t addr, char *status)
+{
+	struct mmc_cmd cmd;
+	struct mmc_data data;
+	int err;
+
+	cmd.cmdidx = MMC_CMD_WRITE_PROT_TYPE;
+	cmd.resp_type = MMC_RSP_R1;
+	cmd.cmdarg = addr;
+
+	data.dest = status;
+	data.blocksize = 8;
+	data.blocks = 1;
+	data.flags = MMC_DATA_READ;
+
+	err = mmc_send_cmd(mmc, &cmd, &data);
+
+	return err;
+}
+
+int mmc_usr_power_on_wp(struct mmc *mmc, lbaint_t addr, unsigned int size)
+{
+	int err;
+	unsigned int wp_group_size, wp_grp_num, i;
+	struct mmc_cmd cmd;
+	unsigned int timeout = 1000;
+	ALLOC_CACHE_ALIGN_BUFFER(u8, ext_csd, MMC_MAX_BLOCK_LEN);
+
+	size = size / MMC_MAX_BLOCK_LEN;
+
+	err = mmc_send_ext_csd(mmc, ext_csd);
+	if (err)
+		return err;
+
+	if ((ext_csd[EXT_CSD_USER_WP] & EXT_CSD_USER_PERM_WP_EN) ||
+	    (ext_csd[EXT_CSD_USER_WP] & EXT_CSD_USER_PWR_WP_DIS)) {
+		printf("Power on protection is disabled\n");
+		return -EINVAL;
+	}
+
+	if (ext_csd[EXT_CSD_ERASE_GROUP_DEF])
+		wp_group_size = ext_csd[EXT_CSD_HC_WP_GRP_SIZE] *
+				ext_csd[EXT_CSD_HC_ERASE_GRP_SIZE] * 1024;
+	else {
+		int erase_gsz, erase_gmul, wp_grp_size;
+
+		erase_gsz = (mmc->csd[2] & 0x00007c00) >> 10;
+		erase_gmul = (mmc->csd[2] & 0x000003e0) >> 5;
+		wp_grp_size = (mmc->csd[2] & 0x0000001f);
+		wp_group_size = (erase_gsz + 1) * (erase_gmul + 1) *
+				(wp_grp_size + 1);
+	}
+
+	if (size < wp_group_size) {
+		printf("wrong size, fail to set power on wp\n");
+		return -EINVAL;
+	}
+
+	err = mmc_switch(mmc, EXT_CSD_CMD_SET_NORMAL,
+				 EXT_CSD_USER_WP, EXT_CSD_USER_PWR_WP_EN);
+	if (err)
+		return err;
+
+	wp_grp_num = DIV_ROUND_UP(size, wp_group_size);
+	cmd.cmdidx = MMC_CMD_WRITE_PROT;
+	cmd.resp_type = MMC_RSP_R1b;
+
+	for (i = 0; i < wp_grp_num; i++) {
+		cmd.cmdarg = addr + i * wp_group_size;
+		err = mmc_send_cmd(mmc, &cmd, NULL);
+		if (err)
+			return err;
+
+		/* CMD28/CMD29 ON failure returns address out of range error */
+		if ((cmd.response[0] >> 31) & 0x01) {
+			printf("address for CMD28/29 out of range\n");
+			return -EINVAL;
+		}
+
+		err = mmc_send_status(mmc, timeout);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_SUPPORT_EMMC_BOOT
 /*
  * This function changes the size of boot partition and the size of rpmb

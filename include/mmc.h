@@ -89,6 +89,8 @@
 #define MMC_CMD_SET_BLOCK_COUNT         23
 #define MMC_CMD_WRITE_SINGLE_BLOCK	24
 #define MMC_CMD_WRITE_MULTIPLE_BLOCK	25
+#define MMC_CMD_WRITE_PROT		28
+#define MMC_CMD_WRITE_PROT_TYPE		31
 #define MMC_CMD_ERASE_GROUP_START	35
 #define MMC_CMD_ERASE_GROUP_END		36
 #define MMC_CMD_ERASE			38
@@ -175,6 +177,7 @@
 #define EXT_CSD_WR_REL_PARAM		166	/* R */
 #define EXT_CSD_WR_REL_SET		167	/* R/W */
 #define EXT_CSD_RPMB_MULT		168	/* RO */
+#define EXT_CSD_USER_WP			171
 #define EXT_CSD_ERASE_GROUP_DEF		175	/* R/W */
 #define EXT_CSD_BOOT_BUS_WIDTH		177
 #define EXT_CSD_PART_CONF		179	/* R/W */
@@ -230,6 +233,10 @@
 
 #define EXT_CSD_WR_DATA_REL_USR		(1 << 0)	/* user data area WR_REL */
 #define EXT_CSD_WR_DATA_REL_GP(x)	(1 << ((x)+1))	/* GP part (x+1) WR_REL */
+
+#define EXT_CSD_USER_PWR_WP_DIS		(1 << 3) /* disable power-on write protect*/
+#define EXT_CSD_USER_PERM_WP_EN		(1 << 2) /* enable permanent write protect */
+#define EXT_CSD_USER_PWR_WP_EN		(1 << 0) /* enable power-on write protect */
 
 #define R1_ILLEGAL_COMMAND		(1 << 22)
 #define R1_APP_CMD			(1 << 5)
@@ -477,6 +484,35 @@ int cpu_mmc_init(bd_t *bis);
 int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr);
 
 struct pci_device_id;
+
+/**
+ * mmc_usr_power_on_wp() - Enable power-on write protect
+ *
+ * This function specific user area address enable power on write protect
+ *
+ * @mmc: pointer to the mmc device structure
+ * @addr: address of power-on write protect area, use block address
+ * @size: size of power on write protect area, in bytes
+ * @return 0 success, -ve on error
+ */
+int mmc_usr_power_on_wp(struct mmc *mmc, lbaint_t addr, unsigned int size);
+
+/**
+ * mmc_get_wp_status() - Get write protect status
+ *
+ * This function read specific user area address write protect status,
+ * the data bits represent:
+ * “00” Write protection group not protected
+ * “01” Write protection group is protected by temporary write protection
+ * “10” Write protection group is protected by power-on write protection
+ * “11” Write protection group is protected by permanent write protection
+ *
+ * @mmc: pointer for the mmc device strcuture
+ * @addr: address you want to read the status, use block address
+ * @status: write protect status you get:
+ * @return 0 on success, -ve on error
+ */
+int mmc_get_wp_status(struct mmc *mmc, lbaint_t addr, char *status);
 
 /**
  * pci_mmc_init() - set up PCI MMC devices
