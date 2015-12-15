@@ -67,6 +67,7 @@
 
 #define BOOTCTRL_SUFFIX_A           "_a"
 #define BOOTCTRL_SUFFIX_B           "_b"
+#define BOOTCTRL_SUFFIX_NA			"no suffix available"
 
 #define BOOT_CONTROL_VERSION    1
 
@@ -320,6 +321,110 @@ static int brillo_setup_bootargs(void)
 		strncat(serial_arg, serial, sizeof(serial_arg) - strlen(serial_arg) - 1);
 		setenv("bootargs", serial_arg);
 	}
+}
+
+char* get_active_slot(void) {
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
+	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
+		return BOOTCTRL_SUFFIX_NA;
+
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
+		return BOOTCTRL_SUFFIX_NA;
+
+	if (ab_read_bootloader_message(dev, &misc_part, &message))
+		return BOOTCTRL_SUFFIX_NA;
+
+	if(metadata->slot_info[1].priority > metadata->slot_info[0].priority)
+		return suffixes[1];
+
+	return suffixes[0];
+}
+
+int get_slot_retry_count(char *suffix) {
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
+	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	int i = 0;
+	int ret;
+	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
+		return -ENODEV;
+
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
+		return -ENOENT;
+
+	if ((ret = ab_read_bootloader_message(dev, &misc_part, &message)))
+		return ret;
+
+	for(i = 0; i < 2; i++){
+		if(!strcmp(suffixes[i], suffix)) {
+			return metadata->slot_info[i].tries_remaining;
+		}
+	}
+	return -EINVAL;
+}
+
+bool is_successful_slot (char *suffix) {
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
+	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	int i = 0;
+
+	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
+		return false;
+
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
+		return false;
+
+	if (ab_read_bootloader_message(dev, &misc_part, &message))
+		return false;
+
+	for(i = 0; i < 2; i++){
+		if(!strcmp(suffixes[i], suffix)) {
+			if(metadata->slot_info[i].successful_boot == 1) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool is_unbootable_slot (char *suffix) {
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
+	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	int i = 0;
+
+	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
+		return false;
+
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
+		return false;
+
+	if (ab_read_bootloader_message(dev, &misc_part, &message))
+		return false;
+
+	for(i = 0; i < 2; i++){
+		if(!strcmp(suffixes[i], suffix)) {
+			return (metadata->slot_info[i].priority == 0);
+		}
+	}
+
+	return false;
 }
 
 static int brillo_boot_ab(void)

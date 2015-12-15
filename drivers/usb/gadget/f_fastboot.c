@@ -134,6 +134,12 @@ static void fastboot_complete(struct usb_ep *ep, struct usb_request *req)
 	printf("status: %d ep '%s' trans: %d\n", status, ep->name, req->actual);
 }
 
+static void fastboot_complete2(struct usb_ep *ep, struct usb_request *req)
+{
+	usb_ep_dequeue(ep, req);
+	usb_ep_free_request(ep, req);
+}
+
 static int fastboot_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	int id;
@@ -326,6 +332,26 @@ static int fastboot_tx_write_str(const char *buffer)
 	return fastboot_tx_write(buffer, strlen(buffer));
 }
 
+static int fastboot_tx_write2(struct usb_request *req, const char *buffer, unsigned int buffer_size)
+{
+	int ret;
+
+	memcpy(req->buf, buffer, buffer_size);
+	req->length = buffer_size;
+
+	usb_ep_dequeue(fastboot_func->in_ep, req);
+
+	ret = usb_ep_queue(fastboot_func->in_ep, req, 0);
+	if (ret)
+		printf("Error %d on queue\n", ret);
+	return 0;
+}
+
+static int fastboot_tx_write_str2(struct usb_request *req, const char *buffer)
+{
+	return fastboot_tx_write2(req, buffer, strlen(buffer));
+}
+
 static void compl_do_reset(struct usb_ep *ep, struct usb_request *req)
 {
 	do_reset(NULL, 0, 0, NULL);
@@ -392,12 +418,185 @@ static void var_partition_size(const char *part, char *response)
 	snprintf(response, RESPONSE_LEN, "OKAY0x%016llx", info.size * info.blksz);
 }
 
+
+struct get_var_command_t {
+	char command_name[20];
+	void (*get_var)(char *response, char *cmd, size_t chars_left);
+};
+
+
+static void getvar_version(char *response, char *cmd, size_t chars_left) {
+	strncat(response, FASTBOOT_VERSION, chars_left);
+}
+
+static void getvar_bootloader_version(char *response, char *cmd, size_t chars_left) {
+	strncat(response, U_BOOT_VERSION, chars_left);
+}
+
+static void getvar_download_size(char *response, char *cmd, size_t chars_left) {
+	char str_num[12];
+	sprintf(str_num, "0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	strncat(response, str_num, chars_left);
+}
+
+static void getvar_serialno(char *response, char *cmd, size_t chars_left) {
+	char *s;
+	s = getenv("serial#");
+	if (s)
+		strncat(response, s, chars_left);
+	else
+		strcpy(response, "FAILValue not set");
+}
+
+static void getvar_partition_type(char *response, char *cmd, size_t chars_left) {
+	var_partition_type(cmd + 15, response);
+}
+
+static void getvar_partition_size(char *response, char *cmd, size_t chars_left) {
+	var_partition_size(cmd + 15, response);
+}
+
+static void getvar_has_slot(char *response, char *cmd, size_t chars_left) {
+	strsep(&cmd, ":");
+	if(!strcmp("boot", cmd) || !strcmp("system", cmd) || !strcmp("oem", cmd)) {
+		strncat(response, "yes", chars_left);
+	} else {
+		strncat(response, "no", chars_left);
+	}
+}
+
+static void getvar_current_slot(char *response, char *cmd, size_t chars_left) {
+	char* current_slot = get_active_slot();
+	strncat(response, current_slot, chars_left);
+}
+static void getvar_slot_suffixes(char *response, char *cmd, size_t chars_left) {
+	strsep(&cmd, ":");
+	snprintf(response, RESPONSE_LEN, "OKAY_a,_b");
+}
+static void getvar_slot_successful(char *response, char *cmd, size_t chars_left) {
+	strsep(&cmd, ":");
+	if(is_successful_slot(cmd))
+		strncat(response, "yes", chars_left);
+	else
+		strncat(response, "no", chars_left);
+}
+static void getvar_slot_unbootable(char *response, char *cmd, size_t chars_left) {
+	strsep(&cmd, ":");
+	if(is_unbootable_slot(cmd)) {
+		strncat(response, "yes", chars_left);
+	} else {
+		strncat(response, "no", chars_left);
+	}
+}
+static void getvar_slot_retry_count(char *response, char *cmd, size_t chars_left) {
+	strsep(&cmd, ":");
+	int ret = get_slot_retry_count(cmd);
+	if(ret >= 0){
+		snprintf(response, RESPONSE_LEN, "OKAY%d", ret);
+	} else {
+		strcpy(response, "FAILUnable to get slot-retry-count");
+	}
+}
+
+static void getvar_all(char *response, char *cmd, size_t chars_left) {
+	snprintf(response, RESPONSE_LEN, "INFOversion:%s", FASTBOOT_VERSION);
+	struct usb_request *req1 = fastboot_start_ep(fastboot_func->in_ep);
+	req1->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req1, response);
+
+	snprintf(response, RESPONSE_LEN, "INFObootloader-version:%s", U_BOOT_VERSION);
+	struct usb_request *req2 = fastboot_start_ep(fastboot_func->in_ep);
+	req2->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req2, response);
+
+	snprintf(response, RESPONSE_LEN, "INFOdownloadsize:0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	struct usb_request *req4 = fastboot_start_ep(fastboot_func->in_ep);
+	req4->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req4, response);
+
+	snprintf(response, RESPONSE_LEN, "INFOmax-download-size:0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	struct usb_request *req5 = fastboot_start_ep(fastboot_func->in_ep);
+	req5->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req5, response);
+
+	snprintf(response, RESPONSE_LEN, "INFOserialno:%s", getenv("serial#"));
+	struct usb_request *req6 = fastboot_start_ep(fastboot_func->in_ep);
+	req6->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req6, response);
+
+	struct usb_request *req9 = fastboot_start_ep(fastboot_func->in_ep);
+	req9->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req9, "OKAY");
+}
+
+
+static struct get_var_command_t list_of_commands[] = {
+	{
+		"version",
+		getvar_version,
+	},
+	{
+		"version-bootloader",
+		getvar_bootloader_version,
+	},
+	{
+		"downloadsize",
+		getvar_download_size,
+	},
+	{
+		"max-download-size",
+		getvar_download_size,
+	},
+	{
+		"serialno",
+		getvar_serialno,
+	},
+	{
+		"partition-type",
+		getvar_partition_type,
+	},
+	{
+		"partition-size",
+		getvar_partition_size,
+	},
+	{
+		"has-slot",
+		getvar_has_slot,
+	},
+	{
+		"slot-retry-count",
+		getvar_slot_retry_count,
+	},
+	{
+		"current-slot",
+		getvar_current_slot,
+	},
+	{
+		"slot-suffixes",
+		getvar_slot_suffixes,
+	},
+	{
+		"slot-successful",
+		getvar_slot_successful,
+	},
+	{
+		"slot-unbootable",
+		getvar_slot_unbootable,
+	},
+	{
+		"all",
+		getvar_all,
+	},
+};
+
+
 static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 {
 	char *cmd = req->buf;
 	char response[RESPONSE_LEN];
-	const char *s;
 	size_t chars_left;
+	int i;
+	struct get_var_command_t* command = NULL;
 
 	strcpy(response, "OKAY");
 	chars_left = sizeof(response) - strlen(response) - 1;
@@ -409,30 +608,24 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 
-	if (!strcmp_l1("version", cmd)) {
-		strncat(response, FASTBOOT_VERSION, chars_left);
-	} else if (!strcmp_l1("bootloader-version", cmd)) {
-		strncat(response, U_BOOT_VERSION, chars_left);
-	} else if (!strcmp_l1("downloadsize", cmd) ||
-		!strcmp_l1("max-download-size", cmd)) {
-		char str_num[12];
+	for (i = 0; i < ARRAY_SIZE(list_of_commands); i++) {
+		if (!strcmp_l1(list_of_commands[i].command_name, cmd)) {
+			if (list_of_commands[i].get_var) {
+				command = &list_of_commands[i];
+				break;
+			}
+		}
+	}
 
-		sprintf(str_num, "0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
-		strncat(response, str_num, chars_left);
-	} else if (!strcmp_l1("serialno", cmd)) {
-		s = getenv("serial#");
-		if (s)
-			strncat(response, s, chars_left);
-		else
-			strcpy(response, "FAILValue not set");
-	} else if (!strcmp_l1("partition-type", cmd)) {
-		var_partition_type(cmd + 15, response);
-	} else if (!strcmp_l1("partition-size", cmd)) {
-		var_partition_size(cmd + 15, response);
+	if(command != NULL) {
+		command->get_var(response, cmd, chars_left);
+		if(!strcmp_l1(command->command_name, "all"))
+			return;
 	} else {
 		error("unknown variable: %s\n", cmd);
 		strcpy(response, "FAILVariable not implemented");
 	}
+
 	fastboot_tx_write_str(response);
 }
 
@@ -595,8 +788,13 @@ static void cb_flash(struct usb_ep *ep, struct usb_request *req)
 static void cb_set_active(struct usb_ep *ep, struct usb_request *req)
 {
 	unsigned long slot;
-
-	if (strict_strtoul(req->buf + 11, 10, &slot) || slot < 0 || slot > 1) {
+	char *cmd = req->buf;
+	strsep(&cmd, ":");
+	if(strncmp("_a", cmd, 2) == 0) {
+		slot = 0;
+	} else if(strncmp("_b", cmd, 2) == 0) {
+		slot = 1;
+	} else {
 		fastboot_tx_write_str("FAILinvalid slot number");
 		return;
 	}
