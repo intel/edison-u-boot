@@ -54,14 +54,11 @@
 /*
  *#define CONFIG_CMD_DATE
  */
-#define CONFIG_CMD_ECHO
 /*
  *#define CONFIG_CMD_GPIO
  */
 #define CONFIG_CMD_IRQ
-#define CONFIG_CMD_MEMORY
 #define CONFIG_CMD_PCI
-#define CONFIG_CMD_SOURCE
 /*
  *#define CONFIG_CMD_TIME
  *#define CONFIG_CMD_GETTIME
