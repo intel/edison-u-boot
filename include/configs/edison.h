@@ -10,23 +10,16 @@
  * Misc
  */
 
-#define CONFIG_CMD_ITEST
 #define CONFIG_CMD_ASKENV
-#define CONFIG_CMD_BDI
 #define CONFIG_CMD_BSP
-#define CONFIG_CMD_BOOTD
 #define CONFIG_CMD_CACHE
-#define CONFIG_CMD_CONSOLE
 /*
  *#define CONFIG_CMD_DATE
  */
 #define CONFIG_CMD_DIAG
-#define CONFIG_CMD_ECHO
-#define CONFIG_CMD_EDITENV
 #define CONFIG_CMD_ELF
 #define CONFIG_CMD_ENV_CALLBACK
 #define CONFIG_CMD_ENV_FLAGS
-#define CONFIG_CMD_ENV_EXISTS
 /*
  *#define CONFIG_CMD_GETTIME
  */
@@ -40,7 +33,6 @@
  *#define CONFIG_CMD_MD5SUM
  */
 #define CONFIG_CMD_MEMINFO
-#define CONFIG_CMD_MEMORY
 #define CONFIG_CMD_PORTIO
 #define CONFIG_CMD_READ
 #define CONFIG_CMD_REGINFO
@@ -51,7 +43,6 @@
 /*
  *#define CONFIG_CMD_SHA1SUM
  */
-#define CONFIG_CMD_SOURCE
 /*
  *#define CONFIG_CMD_SPI
  */
@@ -67,11 +58,8 @@
 /*
  *#define CONFIG_CMD_GPIO
  */
-#define CONFIG_CMD_LOADB
-#define CONFIG_CMD_LOADS
 #define CONFIG_CMD_IRQ
 #define CONFIG_CMD_MEMORY
-#define CONFIG_CMD_MISC
 #define CONFIG_CMD_PCI
 #define CONFIG_CMD_SOURCE
 /*
@@ -117,7 +105,6 @@
 
 #define CONFIG_SERIAL
 #define CONFIG_SYS_TNG_SERIAL
-#define CONFIG_SYS_TNG_SERIAL2
 #define CONFIG_BAUDRATE                         115200
 
 /*
@@ -127,7 +114,6 @@
 #define CONFIG_GENERIC_MMC
 #define CONFIG_MMC
 #define CONFIG_SDHCI
-#define CONFIG_TANGIER_SDHCI
 #define CONFIG_CMD_MMC
 #define CONFIG_MMC_SDMA
 /*#define CONFIG_MMC_TRACE*/
@@ -155,7 +141,6 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP
-#define CONFIG_SYS_PROMPT			"boot > "
 #define CONFIG_SYS_CBSIZE			2048
 #define CONFIG_SYS_PBSIZE			(CONFIG_SYS_CBSIZE + \
 						 sizeof(CONFIG_SYS_PROMPT) + \
@@ -188,7 +173,6 @@
 #define CONFIG_SYS_STACK_SIZE			(32 * 1024)
 
 #define CONFIG_SYS_CAR_ADDR			0x19200000
-#define CONFIG_SYS_CAR_SIZE			(16 * 1024)
 
 #define CONFIG_SYS_MONITOR_BASE		        CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_MONITOR_LEN			(256 * 1024)
@@ -222,8 +206,6 @@
 #define CONFIG_ENV_SIZE                         (64*1024)
 #define CONFIG_ENV_OFFSET	(3 * 1024 * 1024)
 #define CONFIG_ENV_OFFSET_REDUND (6 * 1024 * 1024)
-#define CONFIG_CMD_SAVEENV
-#define CONFIG_CMD_RUN
 #define CONFIG_SUPPORT_EMMC_BOOT
 #define CONFIG_CMD_SETEXPR
 
@@ -257,7 +239,6 @@
  * SCU
  */
 
-#define CONFIG_INTEL_SCU
 #define CONFIG_SCU_BASE_ADDR                0xff000000
 #define CONFIG_SCU_IPC_BASE         0xff009000
 #define CONFIG_SCU_I2C_BASE         0xff00d000
