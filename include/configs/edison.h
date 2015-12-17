@@ -137,6 +137,7 @@
  /*
  * Miscellaneous configurable options
  */
+#define CONFIG_DISPLAY_CPUINFO
 #define CONFIG_SYS_LONGHELP
 #define CONFIG_SYS_CBSIZE			2048
 #define CONFIG_SYS_PBSIZE			(CONFIG_SYS_CBSIZE + \
