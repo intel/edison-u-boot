@@ -109,6 +109,8 @@ int board_final_cleanup(void)
 	return 0;
 }
 
+__weak char* get_product_name(void) { return ""; }
+
 int board_late_init(void)
 {
 	if (!getenv("serial#")) {
@@ -117,6 +119,13 @@ int board_late_init(void)
 		unsigned char emmc_ssn[16];
 		char ssn[33];
 		char usb_gadget_addr[18];
+		char product_name[20];
+		int offset = 0;
+
+		snprintf(product_name, sizeof(product_name), "%s", get_product_name());
+		offset = strlen(product_name);
+		if (offset)
+			sprintf(ssn, "%s", product_name);
 
 		if (mmc && !mmc_init(mmc)) {
 			int i;
@@ -124,7 +133,7 @@ int board_late_init(void)
 			md5((unsigned char *)mmc->cid, sizeof(mmc->cid), emmc_ssn);
 
 			for (i = 0; i < 4; i++)
-				snprintf(&(ssn[2*i]), 3, "%02x", emmc_ssn[i]);
+				snprintf(&(ssn[2*i+offset]), 3, "%02x", emmc_ssn[i]);
 
 			snprintf(&(usb_gadget_addr[0]), sizeof(usb_gadget_addr),
 					"02:00:86:%02x:%02x:%02x", emmc_ssn[13], emmc_ssn[14],

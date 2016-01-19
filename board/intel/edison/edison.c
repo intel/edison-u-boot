@@ -17,6 +17,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #define WATCHDOG_HEARTBEAT CONFIG_WATCHDOG_HEARTBEAT
 #endif
 
+#define PRODUCT_NAME "edison"
+
 #define OSIP_MAGIC 0x24534f24;
 struct osii_entry {
 	uint16_t os_rev_minor;
@@ -80,6 +82,11 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 		return 0;
 	} else
 		return -EINVAL;
+}
+
+char* get_product_name(void)
+{
+	return PRODUCT_NAME;
 }
 
 void watchdog_reset(void)
