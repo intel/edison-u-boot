@@ -1,0 +1,10 @@
+If you want to regenerate gpt.bin which is used for flashing the GPT partition
+table on a Brillo provisioned Intel Edison device:
+   - make your changes in the sample gpt.ini provided
+   - run:
+      $ python gpt_ini2bin.py gpt.ini > gpt.bin
+   - If you want to flash from an existing BDK tree:
+       - copy the resulting gpt.bin in vendor/bsp/intel/edison/uboot_firmware/gpt
+   - If you are flashing from an existing flashfiles and vendor archive, just replace gpt.bin with the new one.
+   - Follow the standard BDK documentation for flashing a device:
+      e.g $ provision (from a BDK tree) or the brillo-flashall-edison.sh script from an archive.
