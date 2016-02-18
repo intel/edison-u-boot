@@ -54,6 +54,7 @@
 #include <errno.h>
 #include <memalign.h>
 #include <android_bootloader.h>
+#include <mmc.h>
 
 #define BOOT_SIGNATURE_MAX_SIZE 4096
 #define BOOT_MAX_IMAGE_SIZE (32 * 1024 * 1024) /* 32 MiB */
@@ -331,6 +332,7 @@ static int brillo_boot_ab(void)
 	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
 	char boot_part[8];
 	char *old_bootargs;
+	struct mmc *mmc;
 
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
 		return -ENODEV;
@@ -345,6 +347,17 @@ static int brillo_boot_ab(void)
 		slots_by_priority[0] = 1;
 		slots_by_priority[1] = 0;
 	}
+
+	/* Enable power on write protection on the first 8MB of the booting MMC
+	 * Use this space for protecting GPT header, u-boot, factory and security
+	 * partitions
+	 */
+	mmc = find_mmc_device(dev->dev);
+	if (!mmc)
+		printf("WARNING: Cannot access EMMC device, power on write protection is disabled\n");
+	else
+		if (mmc_usr_power_on_wp(mmc, 0ULL, 8 * 1024 * 1024))
+			printf("WARNING: Cannot enable power on write protection\n");
 
 	for (index = 0; index < ARRAY_SIZE(slots_by_priority); index++) {
 		int slot_num = slots_by_priority[index];
