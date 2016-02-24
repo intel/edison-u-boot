@@ -1877,6 +1877,18 @@ int mmc_usr_power_on_wp(struct mmc *mmc, lbaint_t addr, unsigned int size)
 		return -EINVAL;
 	}
 
+	/* check alignment */
+	if (addr % wp_group_size) {
+		printf("Address '" LBAFU "' is not aligned to WP group size '%u'\n",
+				addr, wp_group_size);
+		return -EINVAL;
+	}
+	if (size % wp_group_size) {
+		printf("Size '%u' is not multiple of WP group size '%u'\n", size,
+				wp_group_size);
+		return -EINVAL;
+	}
+
 	err = mmc_switch(mmc, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_USER_WP,
 			(ext_csd[EXT_CSD_USER_WP] & EXT_CSD_USER_WRITE_ONCE_MASK) |
 			EXT_CSD_USER_PWR_WP_EN);
