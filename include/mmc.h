@@ -237,6 +237,7 @@
 #define EXT_CSD_USER_PWR_WP_DIS		(1 << 3) /* disable power-on write protect*/
 #define EXT_CSD_USER_PERM_WP_EN		(1 << 2) /* enable permanent write protect */
 #define EXT_CSD_USER_PWR_WP_EN		(1 << 0) /* enable power-on write protect */
+#define EXT_CSD_USER_WRITE_ONCE_MASK	(0xd0) /* mask the bits that can be written only once */
 
 #define R1_ILLEGAL_COMMAND		(1 << 22)
 #define R1_APP_CMD			(1 << 5)

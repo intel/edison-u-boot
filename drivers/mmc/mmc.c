@@ -1877,8 +1877,9 @@ int mmc_usr_power_on_wp(struct mmc *mmc, lbaint_t addr, unsigned int size)
 		return -EINVAL;
 	}
 
-	err = mmc_switch(mmc, EXT_CSD_CMD_SET_NORMAL,
-				 EXT_CSD_USER_WP, EXT_CSD_USER_PWR_WP_EN);
+	err = mmc_switch(mmc, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_USER_WP,
+			(ext_csd[EXT_CSD_USER_WP] & EXT_CSD_USER_WRITE_ONCE_MASK) |
+			EXT_CSD_USER_PWR_WP_EN);
 	if (err)
 		return err;
 
