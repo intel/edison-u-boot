@@ -43,7 +43,7 @@
 /* Flashing state: lock/unlock */
 #define FB_STATE_UNLOCK 0
 #define FB_STATE_LOCK   1
-#define FB_STATE_UNKNOWN -1
+#define FB_STATE_UNKNOWN 2
 
 struct f_fastboot {
 	struct usb_function usb_function;
@@ -995,7 +995,6 @@ static void fastboot_complete_with_user_action(struct usb_ep * ep, struct usb_re
 
 	fb_read_lock_state(&state);
 	state = state == FB_STATE_LOCK ? FB_STATE_UNLOCK : FB_STATE_LOCK;
-
 	if (fb_write_lock_state(state)) {
 		snprintf(response, RESPONSE_LEN, "FAILCannot %slock device",
 		         state == FB_STATE_UNLOCK ? "un" : "");
