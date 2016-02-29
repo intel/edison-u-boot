@@ -71,6 +71,10 @@
 
 #define BOOT_CONTROL_VERSION    1
 
+struct security_flags {
+       uint8_t lock;
+} __attribute__((packed));
+
 struct slot_metadata {
 	uint8_t priority : 4;
 	uint8_t tries_remaining : 3;
@@ -576,3 +580,95 @@ U_BOOT_CMD(
 	"Boot to Brillo",
 	""
 );
+
+static int brillo_fb_write_lock_state_with_dev(
+		block_dev_desc_t *dev,
+		disk_partition_t security_part,
+		uint8_t locking)
+{
+	void *tmp;
+	lbaint_t blkcnt, i;
+	struct security_flags sec_flag;
+
+	sec_flag.lock = locking;
+
+	blkcnt = BLOCK_CNT(sizeof(sec_flag), dev);
+	tmp = calloc(blkcnt, dev->blksz);
+
+	if (!tmp)
+		return -ENOMEM;
+
+	memcpy(tmp, &sec_flag, sizeof(sec_flag));
+
+	for (i = 0; i < blkcnt; i++) {
+		if (dev->block_write(dev->dev, security_part.start + i, 1,
+				     tmp + i * dev->blksz) != 1) {
+			free(tmp);
+			return -EIO;
+		}
+	}
+
+	free(tmp);
+	return 0;
+}
+
+int fb_write_lock_state(uint8_t lock)
+{
+	block_dev_desc_t *dev;
+	disk_partition_t security_part;
+
+	if (!(dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV))) {
+		printf("ERROR: cannot access the eMMC\n");
+		return -ENODEV;
+	}
+
+	if (get_partition_info_efi_by_name(dev, "security", &security_part)) {
+		printf("ERROR: cannot find security partition\n");
+		return -ENOENT;
+	}
+
+	return brillo_fb_write_lock_state_with_dev(dev, security_part, lock);
+}
+
+static void brillo_fb_read_lock_state_with_dev(
+		block_dev_desc_t *dev,
+		disk_partition_t security_part,
+		uint8_t* lock_state)
+{
+	void *tmp;
+	lbaint_t blkcnt;
+	struct security_flags sec_flag;
+	blkcnt = BLOCK_CNT(sizeof(sec_flag), dev);
+	tmp = calloc(blkcnt, dev->blksz);
+
+	if (!tmp)
+		return;
+
+	if (dev->block_read(dev->dev, security_part.start, blkcnt, tmp) != blkcnt) {
+		free(tmp);
+		return;
+	}
+
+	memcpy(&sec_flag, tmp, sizeof(sec_flag));
+	free(tmp);
+
+	*lock_state = sec_flag.lock;
+}
+
+void fb_read_lock_state(uint8_t* lock_state)
+{
+	block_dev_desc_t *dev;
+	disk_partition_t security_part;
+
+	if (!(dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV))) {
+		printf("ERROR: cannot access the eMMC\n");
+		return;
+	}
+
+	if (get_partition_info_efi_by_name(dev, "security", &security_part)) {
+		printf("ERROR: cannot find security partition\n");
+		return;
+	}
+
+	brillo_fb_read_lock_state_with_dev(dev, security_part, lock_state);
+}

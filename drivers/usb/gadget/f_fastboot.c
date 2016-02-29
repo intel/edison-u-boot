@@ -40,6 +40,11 @@
 
 #define EP_BUFFER_SIZE			4096
 
+/* Flashing state: lock/unlock */
+#define FB_STATE_UNLOCK 0
+#define FB_STATE_LOCK   1
+#define FB_STATE_UNKNOWN -1
+
 struct f_fastboot {
 	struct usb_function usb_function;
 
@@ -122,6 +127,16 @@ static struct usb_gadget_strings *fastboot_strings[] = {
 	&stringtab_fastboot,
 	NULL,
 };
+
+__weak void fb_read_lock_state(uint8_t* lock_state)
+{
+	*lock_state = FB_STATE_UNLOCK;
+}
+
+__weak int fb_write_lock_state(uint8_t lock)
+{
+	return -1;
+}
 
 __weak const char* fb_get_product_name(void)
 {
@@ -786,6 +801,14 @@ static void cb_flash(struct usb_ep *ep, struct usb_request *req)
 {
 	char *cmd = req->buf;
 	char response[RESPONSE_LEN];
+	uint8_t state = FB_STATE_UNLOCK; // default is unlocked
+
+	fb_read_lock_state(&state);
+
+	if (state == FB_STATE_LOCK) {
+		fastboot_tx_write_str("FAILDevice is locked");
+		return;
+	}
 
 	strsep(&cmd, ":");
 	if (!cmd) {
@@ -823,6 +846,110 @@ static void cb_set_active(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	fastboot_tx_write_str("OKAY");
+}
+
+__weak const char* fb_get_wipe_userdata_message(void)
+{
+	return "Default implementation does not erase userdata";
+}
+
+__weak bool fb_get_wipe_userdata_response(void)
+{
+	return false;
+}
+
+static void fastboot_complete_with_user_action(struct usb_ep * ep, struct usb_request *req)
+{
+	char response[RESPONSE_LEN];
+	uint8_t state = FB_STATE_UNKNOWN;
+
+	usb_ep_dequeue(ep, req);
+	usb_ep_free_request(ep, req);
+
+	if (!fb_get_wipe_userdata_response()) {
+		error("cannot change device locking state without erasing userdata\n");
+		fastboot_tx_write_str("FAILmust erase userdata before changing device state");
+		return;
+	}
+
+	printf("Wiping userdata...\n");
+	response[0] = 0; /* clear response buffer */
+	fb_mmc_erase("userdata", response);
+	if (strncmp(response, "OKAY", 4)) {
+		fastboot_tx_write_str(response);
+		return;
+	}
+
+	fb_read_lock_state(&state);
+	state = state == FB_STATE_LOCK ? FB_STATE_UNLOCK : FB_STATE_LOCK;
+
+	if (fb_write_lock_state(state)) {
+		snprintf(response, RESPONSE_LEN, "FAILCannot %slock device",
+		         state == FB_STATE_UNLOCK ? "un" : "");
+	} else {
+		strcpy(response, "OKAY");
+	}
+
+	fastboot_tx_write_str(response);
+}
+
+static void cb_flashing(struct usb_ep *ep, struct usb_request *req)
+{
+	uint8_t curr_state = FB_STATE_UNKNOWN, new_state;
+	char *cmd = req->buf;
+	char response[RESPONSE_LEN];
+#ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
+	struct usb_request *req1, *req2;
+	const char* user_msg;
+#endif
+	strsep(&cmd, " ");
+
+	if (!cmd) {
+		error("missing lock state\n");
+		fastboot_tx_write_str("FAILmissing lock state");
+		return;
+	}
+
+	fb_read_lock_state(&curr_state);
+
+	if (!strcmp_l1("lock", cmd)) {
+		new_state = FB_STATE_LOCK;
+	} else if (!strcmp_l1("unlock", cmd)) {
+		new_state = FB_STATE_UNLOCK;
+	} else {
+		fastboot_tx_write_str("FAILflashing state unknown");
+		return;
+	}
+
+	if (curr_state == new_state) {
+		fastboot_tx_write_str("OKAY");
+		return;
+	}
+
+#ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
+	printf("Changing device to this state requires wiping userdata\n");
+	snprintf(response, RESPONSE_LEN, "INFOChanging device to this state requires wiping userdata");
+	req1 = fastboot_start_ep(fastboot_func->in_ep);
+	req1->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req1, response);
+
+
+	user_msg = fb_get_wipe_userdata_message();
+	printf("%s\n", user_msg);
+	snprintf(response, RESPONSE_LEN, "INFO%s", user_msg);
+	req2 = fastboot_start_ep(fastboot_func->in_ep);
+	req2->complete = fastboot_complete_with_user_action;
+	fastboot_tx_write_str2(req2, response);
+#else
+	if (fb_write_lock_state(new_state)) {
+		snprintf(response, RESPONSE_LEN, "FAILCannot %slock device",
+		         new_state == FB_STATE_UNLOCK ? "un" : "");
+	} else {
+		strcpy(response, "OKAY");
+	}
+
+	fastboot_tx_write_str(response);
+#endif
 }
 
 static void cb_oem(struct usb_ep *ep, struct usb_request *req)
@@ -886,6 +1013,10 @@ static const struct cmd_dispatch_info cmd_dispatch_info[] = {
 		.cb = cb_continue,
 	},
 #ifdef CONFIG_FASTBOOT_FLASH
+	{
+		.cmd = "flashing",
+		.cb = cb_flashing,
+	},
 	{
 		.cmd = "flash",
 		.cb = cb_flash,

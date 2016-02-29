@@ -202,3 +202,25 @@ int board_populate_mbr_boot_code(legacy_mbr *mbr)
 
 	return 0;
 }
+
+const char* fb_get_wipe_userdata_message(void)
+{
+	return "Press RM button for YES or FW button for NO";
+}
+
+bool fb_get_wipe_userdata_response(void)
+{
+	uint8_t y_gpio, n_gpio, retries = 100;
+
+	do {
+		y_gpio = !(*(uint8_t*)0xff00800b & 0x20); // default 0
+		n_gpio = !(*(uint8_t*)0xff00800b & 0x40); // default 1
+		mdelay(100);
+		retries--;
+	} while (retries && y_gpio == 0 && n_gpio == 1);
+
+	if (y_gpio == 1) {
+		return true;
+	}
+	return false;
+}
