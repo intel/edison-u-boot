@@ -128,6 +128,7 @@ char* board_get_reboot_target(void)
 	intel_scu_ipc_raw_cmd(0xe4, 0, NULL, 0, NULL, 0, 0, 0xffffffff);
 
 	switch (target) {
+	case 0x0c: return "recovery";
 	case 0x0e: return "fastboot";
 	default: return "";
 	}

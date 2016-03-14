@@ -292,6 +292,18 @@ static void boot_image(void)
 	boot_linux_kernel((ulong)params, load_address, false);
 }
 
+static void brillo_do_recovery(void)
+{
+	block_dev_desc_t *dev;
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
+		return;
+
+	if (load_boot_image(dev, "recovery"))
+		return;
+
+	boot_image();
+}
+
 static void brillo_do_fastboot(void)
 {
 	char *fastboot_args[] = {NULL, "0"};
@@ -535,7 +547,10 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 #endif
 
 	char *reboot_target = board_get_reboot_target();
-	if (!strcmp(reboot_target, "fastboot")) {
+	if (!strcmp(reboot_target, "recovery")) {
+		brillo_do_recovery();
+		goto boot_failed;
+	} else if (!strcmp(reboot_target, "fastboot")) {
 		brillo_do_fastboot();
 		brillo_do_reset();
 	}
@@ -544,6 +559,7 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 
 	brillo_boot_ab();
 
+boot_failed:
 	/* Return from boot_ab means normal and recovery via disk
 	 * failed. Here we do fastboot as 'Diskless Recovery' */
 	brillo_do_fastboot();
