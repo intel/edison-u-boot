@@ -499,27 +499,27 @@ static void getvar_slot_retry_count(char *response, char *cmd, size_t chars_left
 }
 
 static void getvar_all(char *response, char *cmd, size_t chars_left) {
-	snprintf(response, RESPONSE_LEN, "INFOversion:%s", FASTBOOT_VERSION);
+	snprintf(response, RESPONSE_LEN, "INFOversion: %s", FASTBOOT_VERSION);
 	struct usb_request *req1 = fastboot_start_ep(fastboot_func->in_ep);
 	req1->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req1, response);
 
-	snprintf(response, RESPONSE_LEN, "INFObootloader-version:%s", U_BOOT_VERSION);
+	snprintf(response, RESPONSE_LEN, "INFOversion-bootloader: %s", U_BOOT_VERSION);
 	struct usb_request *req2 = fastboot_start_ep(fastboot_func->in_ep);
 	req2->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req2, response);
 
-	snprintf(response, RESPONSE_LEN, "INFOdownloadsize:0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	snprintf(response, RESPONSE_LEN, "INFOdownloadsize: 0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
 	struct usb_request *req4 = fastboot_start_ep(fastboot_func->in_ep);
 	req4->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req4, response);
 
-	snprintf(response, RESPONSE_LEN, "INFOmax-download-size:0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	snprintf(response, RESPONSE_LEN, "INFOmax-download-size: 0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
 	struct usb_request *req5 = fastboot_start_ep(fastboot_func->in_ep);
 	req5->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req5, response);
 
-	snprintf(response, RESPONSE_LEN, "INFOserialno:%s", getenv("serial#"));
+	snprintf(response, RESPONSE_LEN, "INFOserialno: %s", getenv("serial#"));
 	struct usb_request *req6 = fastboot_start_ep(fastboot_func->in_ep);
 	req6->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req6, response);
