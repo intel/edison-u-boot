@@ -123,6 +123,11 @@ static struct usb_gadget_strings *fastboot_strings[] = {
 	NULL,
 };
 
+__weak const char* fb_get_product_name(void)
+{
+	return "";
+}
+
 static void rx_handler_command(struct usb_ep *ep, struct usb_request *req);
 static int strcmp_l1(const char *s1, const char *s2);
 
@@ -448,6 +453,10 @@ static void getvar_serialno(char *response, char *cmd, size_t chars_left) {
 		strcpy(response, "FAILValue not set");
 }
 
+static void getvar_product(char *response, char *cmd, size_t chars_left) {
+	strncat(response, fb_get_product_name(), chars_left);
+}
+
 static void getvar_partition_type(char *response, char *cmd, size_t chars_left) {
 	var_partition_type(cmd + 15, response);
 }
@@ -524,6 +533,11 @@ static void getvar_all(char *response, char *cmd, size_t chars_left) {
 	req6->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req6, response);
 
+	snprintf(response, RESPONSE_LEN, "INFOproduct: %s", fb_get_product_name());
+	struct usb_request *req7 = fastboot_start_ep(fastboot_func->in_ep);
+	req7->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req7, response);
+
 	struct usb_request *req9 = fastboot_start_ep(fastboot_func->in_ep);
 	req9->complete = fastboot_complete2;
 	fastboot_tx_write_str2(req9, "OKAY");
@@ -550,6 +564,10 @@ static struct get_var_command_t list_of_commands[] = {
 	{
 		"serialno",
 		getvar_serialno,
+	},
+	{
+		"product",
+		getvar_product,
 	},
 	{
 		"partition-type",

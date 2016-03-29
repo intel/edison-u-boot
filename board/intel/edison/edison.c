@@ -84,7 +84,7 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 		return -EINVAL;
 }
 
-char* get_product_name(void)
+const char* fb_get_product_name(void)
 {
 	return PRODUCT_NAME;
 }

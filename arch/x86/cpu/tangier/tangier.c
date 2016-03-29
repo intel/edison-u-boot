@@ -21,6 +21,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+extern const char* fb_get_product_name(void);
 /*
  * Miscellaneous platform dependent initializations
  */
@@ -109,8 +110,6 @@ int board_final_cleanup(void)
 	return 0;
 }
 
-__weak char* get_product_name(void) { return ""; }
-
 int board_late_init(void)
 {
 	if (!getenv("serial#")) {
@@ -122,7 +121,7 @@ int board_late_init(void)
 		char product_name[20];
 		int offset = 0;
 
-		snprintf(product_name, sizeof(product_name), "%s", get_product_name());
+		snprintf(product_name, sizeof(product_name), "%s", fb_get_product_name());
 		offset = strlen(product_name);
 		if (offset)
 			sprintf(ssn, "%s", product_name);
