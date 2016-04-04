@@ -128,9 +128,19 @@ static struct usb_gadget_strings *fastboot_strings[] = {
 	NULL,
 };
 
+#define BRILLO_MAX_SLOTS 4
+struct gpt_partition_entries {
+	char name[32];
+	char type[32];
+	lbaint_t size;
+	uint8_t slots_num;
+	char slots[BRILLO_MAX_SLOTS * 3];
+};
+
 __weak int fb_read_lock_state(uint8_t* lock_state)
 {
 	*lock_state = FB_STATE_UNLOCK;
+	return 0;
 }
 
 __weak int fb_write_dev_key(uint8_t* devkey, unsigned int number_of_bytes)
@@ -527,42 +537,131 @@ static void getvar_slot_retry_count(char *response, char *cmd, size_t chars_left
 	}
 }
 
-static void getvar_all(char *response, char *cmd, size_t chars_left) {
-	snprintf(response, RESPONSE_LEN, "INFOversion: %s", FASTBOOT_VERSION);
-	struct usb_request *req1 = fastboot_start_ep(fastboot_func->in_ep);
-	req1->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req1, response);
-
-	snprintf(response, RESPONSE_LEN, "INFOversion-bootloader: %s", U_BOOT_VERSION);
-	struct usb_request *req2 = fastboot_start_ep(fastboot_func->in_ep);
-	req2->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req2, response);
-
-	snprintf(response, RESPONSE_LEN, "INFOdownloadsize: 0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
-	struct usb_request *req4 = fastboot_start_ep(fastboot_func->in_ep);
-	req4->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req4, response);
-
-	snprintf(response, RESPONSE_LEN, "INFOmax-download-size: 0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
-	struct usb_request *req5 = fastboot_start_ep(fastboot_func->in_ep);
-	req5->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req5, response);
-
-	snprintf(response, RESPONSE_LEN, "INFOserialno: %s", getenv("serial#"));
-	struct usb_request *req6 = fastboot_start_ep(fastboot_func->in_ep);
-	req6->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req6, response);
-
-	snprintf(response, RESPONSE_LEN, "INFOproduct: %s", fb_get_product_name());
-	struct usb_request *req7 = fastboot_start_ep(fastboot_func->in_ep);
-	req7->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req7, response);
-
-	struct usb_request *req9 = fastboot_start_ep(fastboot_func->in_ep);
-	req9->complete = fastboot_complete2;
-	fastboot_tx_write_str2(req9, "OKAY");
+static void __create_request(char *response)
+{
+	struct usb_request *req_slot = fastboot_start_ep(fastboot_func->in_ep);
+	req_slot->complete = fastboot_complete2;
+	fastboot_tx_write_str2(req_slot, response);
 }
 
+static int __find_update_part_entry(int list_size, const char *name, size_t namelen,
+				  struct gpt_partition_entries *list_of_partitions)
+{
+	int j;
+	if (namelen <= 2) /* X_a */
+		return 0;
+
+	for (j = 0; j < list_size; j++) {
+		if (strncmp(list_of_partitions[j].name, name, namelen - 2) == 0) {
+			snprintf(list_of_partitions[j].slots, sizeof(list_of_partitions[j].slots),
+				 "%s _%c", list_of_partitions[j].slots, name[namelen - 1]);
+
+			list_of_partitions[j].slots_num++;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void getvar_all(char *response, char *cmd, size_t chars_left)
+{
+	int i;
+	int list_size = 0;
+	uint8_t state = FB_STATE_UNLOCK; /* default is unlocked */
+	size_t name_length = 0;
+
+	struct gpt_partition_entries list_of_partitions[GPT_ENTRY_NUMBERS];
+
+	disk_partition_t info;
+	block_dev_desc_t *dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV);
+
+	if (!dev) {
+		strcpy(response, "FAILfailed to read mmc");
+		return;
+	}
+
+	for (i = 1; i < GPT_ENTRY_NUMBERS; i++) {
+		if (get_partition_info_efi(dev, i, &info)) {
+			/* no more entries in table */
+			break;
+		}
+
+		name_length = strlen((char*)info.name);
+		/* We assume that the suffix will be at the end with length 2, ex "*_a" */
+		if (name_length > 2 && (info.name[name_length - 2] == '_')) {
+			if (!__find_update_part_entry(list_size, (char*)info.name,
+						name_length, list_of_partitions)) {
+				struct gpt_partition_entries entry;
+
+				snprintf(entry.type, sizeof(entry.type), "%s", info.type);
+				snprintf(entry.name, name_length + 1 - 2, "%s", info.name);
+				entry.size = info.size * info.blksz;
+				entry.slots_num = 1;
+
+				snprintf(entry.slots, sizeof(entry.slots), "_%c", info.name[name_length - 1]);
+
+				list_of_partitions[list_size] = entry;
+				list_size++;
+			}
+		} else {
+			struct gpt_partition_entries entry;
+
+			snprintf(entry.type, sizeof(entry.type), "%s", info.type);
+			snprintf(entry.name, sizeof(entry.name), "%s", info.name);
+			entry.size = info.size * info.blksz;
+			entry.slots_num = 0;
+			list_of_partitions[list_size] = entry;
+
+			list_size++;
+		}
+	}
+
+	for (i = 0; i < list_size; i++) {
+		if (list_of_partitions[i].slots_num > 0) {
+			snprintf(response, RESPONSE_LEN, "INFOpartition \"%s\": has %d slots \"%s\"",
+				 list_of_partitions[i].name,
+				 list_of_partitions[i].slots_num,
+				 list_of_partitions[i].slots);
+		} else {
+			snprintf(response, RESPONSE_LEN, "INFOpartition \"%s\": has no slots",
+				 list_of_partitions[i].name);
+		}
+		__create_request(response);
+
+		snprintf(response, RESPONSE_LEN, "INFOpartition \"%s\": type %s",
+			 list_of_partitions[i].name, list_of_partitions[i].type);
+		__create_request(response);
+
+		snprintf(response, RESPONSE_LEN, "INFOpartition \"%s\": size 0x%016llx",
+			 list_of_partitions[i].name, list_of_partitions[i].size);
+		__create_request(response);
+	}
+
+	snprintf(response, RESPONSE_LEN, "INFOversion: %s", FASTBOOT_VERSION);
+	__create_request(response);
+
+	snprintf(response, RESPONSE_LEN, "INFOversion-bootloader: %s", U_BOOT_VERSION);
+	__create_request(response);
+
+	snprintf(response, RESPONSE_LEN, "INFOdownloadsize: 0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	__create_request(response);
+
+	snprintf(response, RESPONSE_LEN, "INFOmax-download-size: 0x%08x", CONFIG_FASTBOOT_BUF_SIZE);
+	__create_request(response);
+
+	snprintf(response, RESPONSE_LEN, "INFOserialno: %s", getenv("serial#"));
+	__create_request(response);
+
+	snprintf(response, RESPONSE_LEN, "INFOproduct: %s", fb_get_product_name());
+	__create_request(response);
+
+	fb_read_lock_state(&state);
+
+	snprintf(response, RESPONSE_LEN, "INFOdevice is %s", state == 0 ? "locked" : "unlocked");
+	__create_request(response);
+
+	__create_request("OKAY");
+}
 
 static struct get_var_command_t list_of_commands[] = {
 	{
