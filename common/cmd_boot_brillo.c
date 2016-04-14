@@ -476,6 +476,13 @@ bool is_unbootable_slot (char *suffix) {
 	return false;
 }
 
+static void __mark_slot_as_failed(struct slot_metadata *slot, char *slot_name)
+{
+	slot->successful_boot = 0;
+	slot->tries_remaining = 0;
+	slot->priority = 0;
+	printf("WARNING: failed to boot %s slot!\n", slot_name);
+}
 static int brillo_boot_ab(void)
 {
 	struct bootloader_message message;
@@ -530,9 +537,7 @@ static int brillo_boot_ab(void)
 				suffixes[slot_num]);
 			if (load_boot_image(dev, boot_part)) {
 				/* Failed to load, mark as failed */
-				slot->successful_boot = 0;
-				slot->tries_remaining = 0;
-				slot->priority = 0;
+				__mark_slot_as_failed(slot, suffixes[slot_num]);
 				continue;
 			}
 			if (slot->tries_remaining > 0)
@@ -548,9 +553,7 @@ static int brillo_boot_ab(void)
 
 			/* Failed to boot, mark as failed */
 			setenv("bootargs", old_bootargs);
-			slot->successful_boot = 0;
-			slot->tries_remaining = 0;
-			slot->priority = 0;
+			__mark_slot_as_failed(slot, suffixes[slot_num]);
 			ab_write_bootloader_message(dev, &misc_part, &message);
 		}
 	}
