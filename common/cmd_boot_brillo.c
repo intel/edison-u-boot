@@ -296,16 +296,52 @@ static void boot_image(void)
 	boot_linux_kernel((ulong)params, load_address, false);
 }
 
+static void boot_recovery_image(block_dev_desc_t *dev, struct boot_ctrl *metadata,
+		disk_partition_t *misc_part, struct bootloader_message *message)
+{
+	if (metadata->recovery_tries_remaining > 0) {
+		metadata->recovery_tries_remaining--;
+		if (load_boot_image(dev, "recovery")) {
+			/* Failed to load, set remaining tries to zero */
+			metadata->recovery_tries_remaining = 0;
+			ab_write_bootloader_message(dev, misc_part, message);
+			return;
+		}
+		ab_write_bootloader_message(dev, misc_part, message);
+		boot_image();
+		/* Failed to boot, set remaining tries to zero */
+		metadata->recovery_tries_remaining = 0;
+		ab_write_bootloader_message(dev, misc_part, message);
+	}
+}
+
 static void brillo_do_recovery(void)
 {
+	struct bootloader_message message;
+	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
+	struct slot_metadata *slot;
 	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	int index;
+
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
 		return;
 
-	if (load_boot_image(dev, "recovery"))
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part))
 		return;
 
-	boot_image();
+	if (ab_read_bootloader_message(dev, &misc_part, &message))
+		return;
+
+	/* Slots need to be marked as failed before loading recovery mode */
+	for (index = 0; index < ARRAY_SIZE(metadata->slot_info); index++) {
+		slot = &metadata->slot_info[index];
+		slot->successful_boot = 0;
+		slot->tries_remaining = 0;
+		slot->priority = 0;
+	}
+
+	boot_recovery_image(dev, metadata, &misc_part, &message);
 }
 
 static void brillo_do_fastboot(void)
@@ -523,20 +559,7 @@ static int brillo_boot_ab(void)
 	}
 
 	/* Failed to boot any partition. Try recovery. */
-	if (metadata->recovery_tries_remaining > 0) {
-		metadata->recovery_tries_remaining--;
-		if (load_boot_image(dev, "recovery")) {
-			/* Failed to load, set remaining tries to zero */
-			metadata->recovery_tries_remaining = 0;
-			ab_write_bootloader_message(dev, &misc_part, &message);
-			return -ENOENT;
-		}
-		ab_write_bootloader_message(dev, &misc_part, &message);
-		boot_image();
-		/* Failed to boot, set remaining tries to zero */
-		metadata->recovery_tries_remaining = 0;
-		ab_write_bootloader_message(dev, &misc_part, &message);
-	}
+	boot_recovery_image(dev, metadata, &misc_part, &message);
 
 	return -ENOENT;
 }
