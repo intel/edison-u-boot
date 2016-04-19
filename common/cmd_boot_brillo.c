@@ -54,6 +54,7 @@
 #include <errno.h>
 #include <memalign.h>
 #include <android_bootloader.h>
+#include <cmd_boot_brillo.h>
 #include <mmc.h>
 
 #define BOOT_SIGNATURE_MAX_SIZE 4096
@@ -70,10 +71,6 @@
 #define BOOTCTRL_SUFFIX_NA			"no suffix available"
 
 #define BOOT_CONTROL_VERSION    1
-
-struct security_flags {
-       uint8_t lock;
-} __attribute__((packed));
 
 struct slot_metadata {
 	uint8_t priority : 4;
@@ -604,16 +601,23 @@ U_BOOT_CMD(
 	""
 );
 
-static int brillo_fb_write_lock_state_with_dev(
-		block_dev_desc_t *dev,
-		disk_partition_t security_part,
-		uint8_t locking)
+static int brillo_fb_write_security_partition(struct security_flags sec_flag)
 {
 	void *tmp;
 	lbaint_t blkcnt, i;
-	struct security_flags sec_flag;
+	block_dev_desc_t *dev;
+	disk_partition_t security_part;
 
-	sec_flag.lock = locking;
+	if (!(dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV))) {
+		printf("ERROR: cannot access the eMMC\n");
+		return -ENODEV;
+	}
+
+	if (get_partition_info_efi_by_name(dev, "security", &security_part)) {
+		printf("ERROR: cannot find security partition\n");
+		return -ENOENT;
+	}
+
 
 	blkcnt = BLOCK_CNT(sizeof(sec_flag), dev);
 	tmp = calloc(blkcnt, dev->blksz);
@@ -635,63 +639,101 @@ static int brillo_fb_write_lock_state_with_dev(
 	return 0;
 }
 
-int fb_write_lock_state(uint8_t lock)
+static int brillo_fb_read_security_partition(struct security_flags *security_data)
 {
+	void *tmp;
+	lbaint_t blkcnt;
 	block_dev_desc_t *dev;
-	disk_partition_t security_part;
+	disk_partition_t security_partition;
 
 	if (!(dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV))) {
 		printf("ERROR: cannot access the eMMC\n");
 		return -ENODEV;
 	}
 
-	if (get_partition_info_efi_by_name(dev, "security", &security_part)) {
+	if (get_partition_info_efi_by_name(dev, "security", &security_partition)) {
 		printf("ERROR: cannot find security partition\n");
 		return -ENOENT;
 	}
 
-	return brillo_fb_write_lock_state_with_dev(dev, security_part, lock);
-}
-
-static void brillo_fb_read_lock_state_with_dev(
-		block_dev_desc_t *dev,
-		disk_partition_t security_part,
-		uint8_t* lock_state)
-{
-	void *tmp;
-	lbaint_t blkcnt;
-	struct security_flags sec_flag;
-	blkcnt = BLOCK_CNT(sizeof(sec_flag), dev);
+	blkcnt = BLOCK_CNT(sizeof(struct security_flags), dev);
 	tmp = calloc(blkcnt, dev->blksz);
 
 	if (!tmp)
-		return;
+		return -ENOMEM;
 
-	if (dev->block_read(dev->dev, security_part.start, blkcnt, tmp) != blkcnt) {
+	if (dev->block_read(dev->dev, security_partition.start, blkcnt, tmp) != blkcnt) {
 		free(tmp);
-		return;
+		return -EIO;
 	}
 
-	memcpy(&sec_flag, tmp, sizeof(sec_flag));
+	memcpy(security_data, tmp, sizeof(struct security_flags));
 	free(tmp);
-
-	*lock_state = sec_flag.lock;
+	return 0;
 }
 
-void fb_read_lock_state(uint8_t* lock_state)
+int fb_write_lock_state(uint8_t lock)
 {
-	block_dev_desc_t *dev;
-	disk_partition_t security_part;
+	struct security_flags sec;
+	int ret;
+	ret = brillo_fb_read_security_partition(&sec);
+	if (ret)
+		return ret;
+	sec.lock = lock;
 
-	if (!(dev = get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV))) {
-		printf("ERROR: cannot access the eMMC\n");
-		return;
+	return brillo_fb_write_security_partition(sec);
+}
+
+int fb_write_dev_key(uint8_t* devkey, unsigned int number_of_bytes)
+{
+	struct security_flags sec;
+	int ret;
+
+	if (number_of_bytes > BVB_DEVKEY_MAX) {
+		printf("ERROR: key size is bigger than %d\n", BVB_DEVKEY_MAX);
+		return -ENOMEM;
 	}
 
-	if (get_partition_info_efi_by_name(dev, "security", &security_part)) {
-		printf("ERROR: cannot find security partition\n");
-		return;
+	ret = brillo_fb_read_security_partition(&sec);
+	if (ret)
+		return ret;
+
+	memcpy(sec.devkey, devkey, number_of_bytes);
+	sec.devkey_length = number_of_bytes;
+
+	return brillo_fb_write_security_partition(sec);
+}
+
+int fb_read_dev_key(uint8_t* dev_key, uint16_t *dev_key_length)
+{
+	struct security_flags sec_flag;
+	int ret;
+
+	ret = brillo_fb_read_security_partition(&sec_flag);
+	if (ret)
+		return ret;
+
+	if (sec_flag.devkey_length > BVB_DEVKEY_MAX) {
+		printf("ERROR: key size is bigger than %d\n", BVB_DEVKEY_MAX);
+		return -ENOMEM;
 	}
 
-	brillo_fb_read_lock_state_with_dev(dev, security_part, lock_state);
+	memcpy(dev_key, sec_flag.devkey, sec_flag.devkey_length);
+	*dev_key_length = sec_flag.devkey_length;
+
+	return 0;
+}
+
+
+int fb_read_lock_state(uint8_t* lock_state)
+{
+	struct security_flags sec_flag;
+	int ret;
+
+	ret = brillo_fb_read_security_partition(&sec_flag);
+	if (ret)
+		return ret;
+
+	*lock_state = sec_flag.lock;
+	return 0;
 }

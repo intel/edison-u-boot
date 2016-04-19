@@ -128,9 +128,14 @@ static struct usb_gadget_strings *fastboot_strings[] = {
 	NULL,
 };
 
-__weak void fb_read_lock_state(uint8_t* lock_state)
+__weak int fb_read_lock_state(uint8_t* lock_state)
 {
 	*lock_state = FB_STATE_UNLOCK;
+}
+
+__weak int fb_write_dev_key(uint8_t* devkey, unsigned int number_of_bytes)
+{
+	return -1;
 }
 
 __weak int fb_write_lock_state(uint8_t lock)
@@ -650,7 +655,7 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 		}
 	}
 
-	if(command != NULL) {
+	if (command != NULL) {
 		command->get_var(response, cmd, chars_left);
 		if(!strcmp_l1(command->command_name, "all"))
 			return;
@@ -797,6 +802,8 @@ static void cb_continue(struct usb_ep *ep, struct usb_request *req)
 }
 
 #ifdef CONFIG_FASTBOOT_FLASH
+#define CONFIG_FASTBOOT_BVB_DEVKEY "bvb_devkey"
+
 static void cb_flash(struct usb_ep *ep, struct usb_request *req)
 {
 	char *cmd = req->buf;
@@ -816,12 +823,19 @@ static void cb_flash(struct usb_ep *ep, struct usb_request *req)
 		fastboot_tx_write_str("FAILmissing partition name");
 		return;
 	}
+#ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
+	if (strcmp(cmd, CONFIG_FASTBOOT_BVB_DEVKEY) == 0) {
+		if (fb_write_dev_key((uint8_t *)CONFIG_FASTBOOT_BUF_ADDR, download_bytes) == 0)
+			fastboot_tx_write_str("OKAY");
+		else
+			fastboot_tx_write_str("FAILUnable to flash dev key");
+		return;
+	}
 
 	strcpy(response, "FAILno flash device defined");
-#ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
 	fb_mmc_flash_write(cmd, (void *)CONFIG_FASTBOOT_BUF_ADDR,
 			   download_bytes, response);
-#endif
+#endif /* CONFIG_FASTBOOT_FLASH_MMC_DEV */
 	fastboot_tx_write_str(response);
 }
 #endif
