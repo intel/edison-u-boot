@@ -19,6 +19,9 @@ DECLARE_GLOBAL_DATA_PTR;
 
 #define PRODUCT_NAME "edison"
 
+#define BLOCK_SIZE 512
+#define ONE_MiB (1024 * 1024)
+
 #define OSIP_MAGIC 0x24534f24;
 struct osii_entry {
 	uint16_t os_rev_minor;
@@ -146,7 +149,7 @@ int fb_set_reboot_flag(void)
 }
 
 
-int board_verify_gpt_parts(struct gpt_frag *frag)
+int board_verify_gpt_parts(void *_frag)
 {
 	uint8_t u_boot_label[] = {
 		'u', 0, '-', 0, 'b', 0, 'o', 0, 'o', 0, 't', 0, 0, 0,
@@ -159,20 +162,49 @@ int board_verify_gpt_parts(struct gpt_frag *frag)
 		's', 0, 'e', 0, 'c', 0, 'u', 0, 'r', 0, 'i', 0, 't', 0, 'y', 0, 0, 0,
 	};
 
-	if (memcmp(u_boot_label, frag->parts[0].label, sizeof(u_boot_label)))
-		return -EINVAL;
-	if (frag->parts[0].size_mib != 5)
-		return -EINVAL;
+	struct gpt_frag *frag = _frag;
+	legacy_mbr *mbr = _frag;
+	gpt_header *gpt_h = _frag + (GPT_PRIMARY_PARTITION_TABLE_LBA * BLOCK_SIZE);
+	gpt_entry *gpt_e = _frag + (le64_to_cpu(gpt_h->partition_entry_lba) * BLOCK_SIZE);
+	unsigned long long part_size = 0;
 
-	if (memcmp(factory_label, frag->parts[1].label, sizeof(factory_label)))
-		return -EINVAL;
-	if (frag->parts[1].size_mib != 1)
-		return -EINVAL;
+	if (mbr->signature == MSDOS_MBR_SIGNATURE) {
+		if (memcmp(u_boot_label, gpt_e->partition_name, sizeof(u_boot_label)))
+			return -EINVAL;
+		part_size = (gpt_e->ending_lba - gpt_e->starting_lba + 1) * BLOCK_SIZE / ONE_MiB;
+		if (part_size != 5)
+			return -EINVAL;
 
-	if (memcmp(security_label, frag->parts[2].label, sizeof(security_label)))
-		return -EINVAL;
-	if (frag->parts[2].size_mib != 1)
-		return -EINVAL;
+		gpt_e++;
+		if (memcmp(factory_label, gpt_e->partition_name, sizeof(factory_label)))
+			return -EINVAL;
+		part_size = (gpt_e->ending_lba - gpt_e->starting_lba + 1) * BLOCK_SIZE / ONE_MiB;
+		if (part_size != 1)
+			return -EINVAL;
+
+		gpt_e++;
+		if (memcmp(security_label, gpt_e->partition_name, sizeof(security_label)))
+			return -EINVAL;
+		part_size = (gpt_e->ending_lba - gpt_e->starting_lba + 1) * BLOCK_SIZE / ONE_MiB;
+		if (part_size != 1)
+			return -EINVAL;
+	} else {
+
+		if (memcmp(u_boot_label, frag->parts[0].label, sizeof(u_boot_label)))
+			return -EINVAL;
+		if (frag->parts[0].size_mib != 5)
+			return -EINVAL;
+
+		if (memcmp(factory_label, frag->parts[1].label, sizeof(factory_label)))
+			return -EINVAL;
+		if (frag->parts[1].size_mib != 1)
+			return -EINVAL;
+
+		if (memcmp(security_label, frag->parts[2].label, sizeof(security_label)))
+			return -EINVAL;
+		if (frag->parts[2].size_mib != 1)
+			return -EINVAL;
+	}
 
 	return 0;
 }
@@ -188,7 +220,10 @@ int board_populate_mbr_boot_code(legacy_mbr *mbr)
 	osip->number_of_pointers        = 1;
 	osip->number_of_images          = 1;
 	osip->header_size               = sizeof(*osip) + sizeof(osip->osii[0]);
-	osip->osii[0].image_lba         = 0x00000800; /* 1 MiB */
+	if (mbr->signature == MSDOS_MBR_SIGNATURE)
+		osip->osii[0].image_lba = 0x00000028;
+	else
+		osip->osii[0].image_lba = 0x00000800; /* 1 MiB */
 	osip->osii[0].load_address      = 0x01100000;
 	osip->osii[0].start_address     = 0x01101000;
 	osip->osii[0].image_size_blocks = 0x00002800; /* 5 MiB */

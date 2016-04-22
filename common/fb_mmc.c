@@ -81,6 +81,15 @@ static int build_and_write_gpt(block_dev_desc_t *dev, void *_frag,
 	gpt_entry *gpt_e;
 	int ret = -EINVAL;
 
+        /* Check the type of partitioning image */
+	mbr = _frag;
+	if (mbr->signature == MSDOS_MBR_SIGNATURE) {
+		buf = _frag;
+		if (board_verify_gpt_parts(buf))
+			return -EINVAL;
+		goto add_boot_code;
+	}
+
 	if (verify_gpt_frag(frag, frag_size))
 		return -EINVAL;
 
@@ -91,18 +100,6 @@ static int build_and_write_gpt(block_dev_desc_t *dev, void *_frag,
 	mbr = (legacy_mbr*)buf;
 	gpt_h = buf + dev->blksz;
 	gpt_e = buf + dev->blksz * 2;
-
-	/* Populate MBR */
-	if ((ret = board_populate_mbr_boot_code(mbr)))
-		goto error;
-
-	mbr->partition_record[0].sys_ind = EFI_PMBR_OSTYPE_EFI_GPT;
-	mbr->partition_record[0].start_sect = 1;
-	if (dev->lba > 0xffffffff)
-		mbr->partition_record[0].nr_sects = 0xffffffff;
-	else
-		mbr->partition_record[0].nr_sects = dev->lba - 1;
-	mbr->signature = MSDOS_MBR_SIGNATURE;
 
 	/* Populate GPT Header */
 	gpt_h->signature = GPT_HEADER_SIGNATURE;
@@ -160,9 +157,24 @@ static int build_and_write_gpt(block_dev_desc_t *dev, void *_frag,
 		gpt_h->num_partition_entries * gpt_h->sizeof_partition_entry);
 	gpt_h->header_crc32 = crc32(0, (void*)gpt_h, gpt_h->header_size);
 
+	/* Populate MBR */
+	mbr->partition_record[0].sys_ind = EFI_PMBR_OSTYPE_EFI_GPT;
+	mbr->partition_record[0].start_sect = 1;
+	if (dev->lba > 0xffffffff)
+		mbr->partition_record[0].nr_sects = 0xffffffff;
+	else
+		mbr->partition_record[0].nr_sects = dev->lba - 1;
+
+add_boot_code:
+	if ((ret = board_populate_mbr_boot_code(mbr)))
+		goto error;
+
+	mbr->signature = MSDOS_MBR_SIGNATURE;
+
 	ret = write_mbr_and_gpt_partitions(dev, buf);
 error:
-	free(buf);
+	if (buf != _frag)
+		free(buf);
 	return ret;
 }
 
