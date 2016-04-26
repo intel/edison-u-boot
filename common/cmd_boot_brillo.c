@@ -67,7 +67,10 @@
 #define CONFIG_BRILLO_MMC_BOOT_DEVICE CONFIG_FASTBOOT_FLASH_MMC_DEV
 #endif
 
-#define SLOT_SUFFIX_STR "androidboot.slot_suffix="
+#define BOOT_ARG_SLOT_SUFFIX_STR "androidboot.slot_suffix="
+#define BOOT_ARG_DEVICE_STATE_STR "androidboot.bvb.device_state="
+#define BOOT_ARG_SLOT_CHOSEN_STR "androidboot.bvb.slot_chosen="
+#define BOOT_ARG_FALLBACK_REASON_STR "androidboot.bvb.fallback_reason="
 
 #define BOOTCTRL_SUFFIX_A           "_a"
 #define BOOTCTRL_SUFFIX_B           "_b"
@@ -96,6 +99,7 @@ struct boot_ctrl {
 } __attribute__((packed));
 
 extern bool fb_get_wipe_userdata_response(void);
+int fb_read_lock_state(uint8_t* lock_state);
 
 /* To be overridden by whatever the board's implementation is of
  * 'adb reboot fastboot' and the like.
@@ -383,7 +387,7 @@ static void brillo_do_reset(void)
 	hang();
 }
 
-static int brillo_setup_bootargs(void)
+static void brillo_setup_bootargs(void)
 {
 	char serial_arg[56] = "androidboot.serialno=";
 	char *serial;
@@ -506,6 +510,20 @@ static void __mark_slot_as_failed(struct slot_metadata *slot, char *slot_name)
 	slot->priority = 0;
 	printf("WARNING: failed to boot %s slot!\n", slot_name);
 }
+
+/*	Fallback reasons
+ *
+ *	This must be set only if slot_chosen is set to "fallback" or "recovery"
+ *	and explains why the slot with the highest priority didn’t work. Possible values include:
+ */
+#define FBR_UNKOWN 0
+#define FBR_TRY_COUNT_EXHAUSTED 1
+#define FBR_READ_FAILED FBR_TRY_COUNT_EXHAUSTED << 1
+#define FBR_HASH_MISMATCH FBR_READ_FAILED << 1
+#define FBR_SIGNATURE_INVALID FBR_HASH_MISMATCH << 1
+#define FBR_UNKOWN_PUBLIC_KEY FBR_SIGNATURE_INVALID << 1
+#define FBR_INVALID_ROLLBACK_INDEX FBR_UNKOWN_PUBLIC_KEY << 1
+
 static int brillo_boot_ab(void)
 {
 	struct bootloader_message message;
@@ -517,6 +535,8 @@ static int brillo_boot_ab(void)
 	char boot_part[8];
 	char *old_bootargs;
 	struct mmc *mmc;
+	uint8_t lock_state = 0; /* Lock state is default unlocked */
+	uint8_t fallback_reason = FBR_UNKOWN;
 
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
 		return -ENODEV;
@@ -548,6 +568,7 @@ static int brillo_boot_ab(void)
 		struct slot_metadata *slot = &metadata->slot_info[slot_num];
 
 		if (slot->successful_boot == 0 && slot->tries_remaining == 0) {
+			fallback_reason = FBR_TRY_COUNT_EXHAUSTED;
 			/* This is a failed slot, lower priority to zero */
 			slot->priority = 0;
 		} else {
@@ -561,17 +582,47 @@ static int brillo_boot_ab(void)
 			if (load_boot_image(dev, boot_part)) {
 				/* Failed to load, mark as failed */
 				__mark_slot_as_failed(slot, suffixes[slot_num]);
+				fallback_reason = FBR_READ_FAILED;
 				continue;
 			}
+
 			if (slot->tries_remaining > 0)
 				slot->tries_remaining--;
 			metadata->recovery_tries_remaining = 7;
+			ab_write_bootloader_message(dev, &misc_part, &message);
 
 			old_bootargs = strdup(getenv("bootargs"));
-			append_to_bootargs(" " SLOT_SUFFIX_STR);
+			append_to_bootargs(" " BOOT_ARG_SLOT_SUFFIX_STR);
 			append_to_bootargs(suffixes[slot_num]);
 
-			ab_write_bootloader_message(dev, &misc_part, &message);
+			fb_read_lock_state(&lock_state);
+
+			append_to_bootargs(" " BOOT_ARG_DEVICE_STATE_STR);
+
+			if (lock_state == 1)
+				append_to_bootargs("locked");
+			else
+				append_to_bootargs("unlocked");
+
+			append_to_bootargs(" " BOOT_ARG_SLOT_CHOSEN_STR);
+			if (slots_by_priority[index] == 0) {
+				append_to_bootargs("highest");
+			} else {
+				append_to_bootargs("fallback");
+				switch (fallback_reason) {
+					case FBR_READ_FAILED:
+						append_to_bootargs(" " BOOT_ARG_FALLBACK_REASON_STR);
+						append_to_bootargs("read_failed");
+						break;
+					case FBR_TRY_COUNT_EXHAUSTED:
+						append_to_bootargs(" " BOOT_ARG_FALLBACK_REASON_STR);
+						append_to_bootargs("try_count_exhausted");
+						break;
+					default:
+						break;
+				}
+			}
+
 			boot_image();
 
 			/* Failed to boot, mark as failed */
