@@ -56,6 +56,9 @@
 #include <android_bootloader.h>
 #include <cmd_boot_brillo.h>
 #include <mmc.h>
+#include <fb_mmc.h>
+
+#define RESPONSE_LEN (64 + 1)
 
 #define BOOT_SIGNATURE_MAX_SIZE 4096
 #define BOOT_MAX_IMAGE_SIZE (32 * 1024 * 1024) /* 32 MiB */
@@ -91,6 +94,8 @@ struct boot_ctrl {
 	struct slot_metadata slot_info[2];
 	uint8_t recovery_tries_remaining;
 } __attribute__((packed));
+
+extern bool fb_get_wipe_userdata_response(void);
 
 /* To be overridden by whatever the board's implementation is of
  * 'adb reboot fastboot' and the like.
@@ -296,6 +301,24 @@ static void boot_image(void)
 static void boot_recovery_image(block_dev_desc_t *dev, struct boot_ctrl *metadata,
 		disk_partition_t *misc_part, struct bootloader_message *message)
 {
+#ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
+	char response[RESPONSE_LEN];
+
+	printf("Entering recovery mode requires erasing userdata\n");
+	printf("Press RM button for YES or FW button for NO\n");
+	if (!fb_get_wipe_userdata_response()) {
+		printf("Cannot enter recovery mode without erasing userdata\n");
+		return;
+	}
+
+	printf("Wiping userdata...\n");
+	response[0] = 0; /* clear response buffer */
+	fb_mmc_erase("userdata", response);
+	if (strncmp(response, "OKAY", 4)) {
+		printf("Error while erasing userdata\n");
+		return;
+	}
+#endif
 	if (metadata->recovery_tries_remaining > 0) {
 		metadata->recovery_tries_remaining--;
 		if (load_boot_image(dev, "recovery")) {
