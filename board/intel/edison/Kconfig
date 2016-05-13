@@ -15,6 +15,14 @@ config SYS_CONFIG_NAME
 config SYS_TEXT_BASE
 	default 0x1101000
 
+config FASTBOOT_VERIFY_GPT_PARTITIONS
+	bool "Verify GPT information before flashing it to device"
+	default n
+	help
+	  This option enables specific board verification code that
+	  checks if the data provided to "fastboot flash gpt" command
+	  can be flashed or not.
+
 config BOARD_SPECIFIC_OPTIONS # dummy
 	def_bool y
 	select INTEL_SCU

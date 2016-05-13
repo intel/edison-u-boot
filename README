@@ -1739,6 +1739,14 @@ The following options need to be configured:
 		"fastboot flash" command line matches this value.
 		Default is GPT_ENTRY_NAME (currently "gpt") if undefined.
 
+		CONFIG_FASTBOOT_VERIFY_GPT_PARTITIONS
+		Enable this option if you want to verify the downloaded image
+		before writing it to the Protective MBR and GPT. You have
+		to provide a function with signature:
+		int board_verify_gpt_parts(void *data, unsigned int length)
+		Return 0 if the verification succeeded or a negative error code
+		otherwise.
+
 - Journaling Flash filesystem support:
 		CONFIG_JFFS2_NAND, CONFIG_JFFS2_NAND_OFF, CONFIG_JFFS2_NAND_SIZE,
 		CONFIG_JFFS2_NAND_DEV

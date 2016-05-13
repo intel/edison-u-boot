@@ -19,6 +19,7 @@
 #endif
 
 #define ONE_MiB (1024 * 1024)
+#define BLOCK_SIZE 512
 
 /* The 64 defined bytes plus the '\0' */
 #define RESPONSE_LEN	(64 + 1)
@@ -37,31 +38,56 @@ void fastboot_okay(const char *s)
 	strncat(response_str, s, RESPONSE_LEN - 4 - 1);
 }
 
-__weak int board_verify_gpt_parts(struct gpt_frag *frag)
+
+#ifdef CONFIG_FASTBOOT_VERIFY_GPT_PARTITIONS
+__weak int board_verify_gpt_parts(void *data, unsigned int length)
 {
 	return 0;
 }
+#endif
 
 __weak int board_populate_mbr_boot_code(legacy_mbr *mbr)
 {
 	return 0;
 }
 
-static int verify_gpt_frag(struct gpt_frag *frag, unsigned int frag_size)
+static int verify_gpt_data(void *data, unsigned int length)
 {
-	if (frag->magic != GPT_FRAG_MAGIC)
-		return -EINVAL;
-	if (frag->start_lba != 0)
-		return -EINVAL;
-	if (frag->num_parts > GPT_ENTRY_NUMBERS)
+	struct gpt_frag *frag = data;
+	legacy_mbr *mbr = data;
+	gpt_header *gpt_h = NULL;
+
+	if (length < sizeof(struct gpt_frag))
 		return -EINVAL;
 
-	if (frag_size != sizeof(*frag) +
-			sizeof(frag->parts[0]) * frag->num_parts)
-		return -EINVAL;
+	if (mbr->signature == MSDOS_MBR_SIGNATURE) {
+		if (length < (GPT_PRIMARY_PARTITION_TABLE_LBA * BLOCK_SIZE) +
+				sizeof(gpt_header))
+			return -EINVAL;
 
-	if (board_verify_gpt_parts(frag))
+		gpt_h = data + (GPT_PRIMARY_PARTITION_TABLE_LBA * BLOCK_SIZE);
+		if (gpt_h->signature != GPT_HEADER_SIGNATURE)
+			return -EINVAL;
+
+		if (length < (le64_to_cpu(gpt_h->partition_entry_lba) * BLOCK_SIZE) +
+				(gpt_h->num_partition_entries * gpt_h->sizeof_partition_entry))
+			return -EINVAL;
+	} else {
+		if (frag->magic != GPT_FRAG_MAGIC)
+			return -EINVAL;
+		if (frag->start_lba != 0)
+			return -EINVAL;
+		if (frag->num_parts > GPT_ENTRY_NUMBERS)
+			return -EINVAL;
+
+		if (length != sizeof(*frag) +
+				sizeof(frag->parts[0]) * frag->num_parts)
+			return -EINVAL;
+	}
+#ifdef CONFIG_FASTBOOT_VERIFY_GPT_PARTITIONS
+	if (board_verify_gpt_parts(data, length))
 		return -EINVAL;
+#endif
 
 	return 0;
 }
@@ -76,22 +102,18 @@ static int build_and_write_gpt(block_dev_desc_t *dev, void *_frag,
 	size_t bufsz = dev->blksz * 2 +
 		sizeof(gpt_entry) * GPT_ENTRY_NUMBERS;
 	void *buf = NULL;
-	legacy_mbr *mbr;
+	legacy_mbr *mbr = _frag;
 	gpt_header *gpt_h;
 	gpt_entry *gpt_e;
 	int ret = -EINVAL;
 
-        /* Check the type of partitioning image */
-	mbr = _frag;
+	if (verify_gpt_data(_frag, frag_size))
+		return -EINVAL;
+
 	if (mbr->signature == MSDOS_MBR_SIGNATURE) {
 		buf = _frag;
-		if (board_verify_gpt_parts(buf))
-			return -EINVAL;
 		goto add_boot_code;
 	}
-
-	if (verify_gpt_frag(frag, frag_size))
-		return -EINVAL;
 
 	buf = calloc(1, bufsz);
 	if (!buf)

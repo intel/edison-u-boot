@@ -20,7 +20,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #define PRODUCT_NAME "edison"
 
 #define BLOCK_SIZE 512
-#define ONE_MiB (1024 * 1024)
 
 #define OSIP_MAGIC 0x24534f24;
 struct osii_entry {
@@ -149,65 +148,64 @@ int fb_set_reboot_flag(void)
 }
 
 
-int board_verify_gpt_parts(void *_frag)
+#ifdef CONFIG_FASTBOOT_VERIFY_GPT_PARTITIONS
+int board_verify_gpt_parts(void *data, unsigned int length)
 {
 	uint8_t u_boot_label[] = {
 		'u', 0, '-', 0, 'b', 0, 'o', 0, 'o', 0, 't', 0, 0, 0,
 	};
-	uint8_t factory_label[] = {
-		'f', 0, 'a', 0, 'c', 0, 't', 0, 'o', 0, 'r', 0, 'y', 0, 0, 0,
-	};
-
 	uint8_t security_label[] = {
 		's', 0, 'e', 0, 'c', 0, 'u', 0, 'r', 0, 'i', 0, 't', 0, 'y', 0, 0, 0,
 	};
 
-	struct gpt_frag *frag = _frag;
-	legacy_mbr *mbr = _frag;
-	gpt_header *gpt_h = _frag + (GPT_PRIMARY_PARTITION_TABLE_LBA * BLOCK_SIZE);
-	gpt_entry *gpt_e = _frag + (le64_to_cpu(gpt_h->partition_entry_lba) * BLOCK_SIZE);
-	unsigned long long part_size = 0;
+	struct gpt_frag *frag = data;
+	legacy_mbr *mbr = data;
+	gpt_header *gpt_h = NULL;
+	gpt_entry *gpt_e = NULL;
+
+	if (length < sizeof(struct gpt_frag))
+		return -EINVAL;
+
+	/* Check data type */
+	if (mbr->signature != MSDOS_MBR_SIGNATURE && frag->magic != GPT_FRAG_MAGIC)
+		return -EINVAL;
 
 	if (mbr->signature == MSDOS_MBR_SIGNATURE) {
-		if (memcmp(u_boot_label, gpt_e->partition_name, sizeof(u_boot_label)))
-			return -EINVAL;
-		part_size = (gpt_e->ending_lba - gpt_e->starting_lba + 1) * BLOCK_SIZE / ONE_MiB;
-		if (part_size != 5)
+		if (length < (GPT_PRIMARY_PARTITION_TABLE_LBA * BLOCK_SIZE) +
+				sizeof(gpt_header))
 			return -EINVAL;
 
-		gpt_e++;
-		if (memcmp(factory_label, gpt_e->partition_name, sizeof(factory_label)))
-			return -EINVAL;
-		part_size = (gpt_e->ending_lba - gpt_e->starting_lba + 1) * BLOCK_SIZE / ONE_MiB;
-		if (part_size != 1)
+		gpt_h = data + (GPT_PRIMARY_PARTITION_TABLE_LBA * BLOCK_SIZE);
+		if (gpt_h->signature != GPT_HEADER_SIGNATURE)
 			return -EINVAL;
 
-		gpt_e++;
-		if (memcmp(security_label, gpt_e->partition_name, sizeof(security_label)))
+		if (length < (le64_to_cpu(gpt_h->partition_entry_lba) * BLOCK_SIZE) +
+				(gpt_h->num_partition_entries * gpt_h->sizeof_partition_entry))
 			return -EINVAL;
-		part_size = (gpt_e->ending_lba - gpt_e->starting_lba + 1) * BLOCK_SIZE / ONE_MiB;
-		if (part_size != 1)
+
+		gpt_e = data + (le64_to_cpu(gpt_h->partition_entry_lba) * BLOCK_SIZE);
+
+		if (memcmp(u_boot_label, gpt_e[0].partition_name, sizeof(u_boot_label)))
+			return -EINVAL;
+		if (memcmp(security_label, gpt_e[1].partition_name, sizeof(security_label)))
 			return -EINVAL;
 	} else {
+		if (frag->start_lba != 0)
+			return -EINVAL;
+		if (frag->num_parts > GPT_ENTRY_NUMBERS)
+			return -EINVAL;
+		if (length != sizeof(*frag) + sizeof(frag->parts[0]) * frag->num_parts)
+			return -EINVAL;
 
 		if (memcmp(u_boot_label, frag->parts[0].label, sizeof(u_boot_label)))
 			return -EINVAL;
-		if (frag->parts[0].size_mib != 5)
-			return -EINVAL;
-
-		if (memcmp(factory_label, frag->parts[1].label, sizeof(factory_label)))
-			return -EINVAL;
-		if (frag->parts[1].size_mib != 1)
-			return -EINVAL;
-
-		if (memcmp(security_label, frag->parts[2].label, sizeof(security_label)))
-			return -EINVAL;
-		if (frag->parts[2].size_mib != 1)
+		if (memcmp(security_label, frag->parts[1].label, sizeof(security_label)))
 			return -EINVAL;
 	}
 
 	return 0;
 }
+#endif
 
 int board_populate_mbr_boot_code(legacy_mbr *mbr)
 {
