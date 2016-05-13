@@ -23,6 +23,29 @@ config FASTBOOT_VERIFY_GPT_PARTITIONS
 	  checks if the data provided to "fastboot flash gpt" command
 	  can be flashed or not.
 
+config EDISON_ENABLE_EMMC_PWR_ON_WP
+	bool "Make the first 8MB of eMMC read-only for the booted OS"
+	default n
+	help
+	  This option enables eMMC's Power On Write Protect feature on
+	  the first 8MB. The protection is activated just before u-boot
+	  passes control to the loaded OS.
+	  By default in Edison running Brillo OS this area is allocated
+	  for the Protective MBR, primary GPT header and GPT entries,
+	  the partition containing u-boot and a 'security' partition
+	  used by Brillo Verified Boot flow.
+	  Additional partitions can be placed under the write protected
+	  area by using more than one 8MB WP block in the u-boot code
+	  or by changing the GPT layout of the first 8MB.
+	  Once Power On Write Protect is enabled for a specific WP block
+	  that block remains read-only until the next device's power cycle.
+	  If this option is enabled and you want to write data in the
+	  WP block then the only way to do it is to enter in FASTBOOT
+	  from device's Power Off state. You can achieve that by
+	  pressing and holding RM button while executing a power cycle on
+	  the device. Release the RM button once fastboot logs appeared
+	  in the serial console or more than 5 seconds passed since power on.
+
 config BOARD_SPECIFIC_OPTIONS # dummy
 	def_bool y
 	select INTEL_SCU

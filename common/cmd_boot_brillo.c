@@ -534,7 +534,9 @@ static int brillo_boot_ab(void)
 	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
 	char boot_part[8];
 	char *old_bootargs;
+#ifdef CONFIG_EDISON_ENABLE_EMMC_PWR_ON_WP
 	struct mmc *mmc;
+#endif
 	uint8_t lock_state = 0; /* Lock state is default unlocked */
 	uint8_t fallback_reason = FBR_UNKOWN;
 
@@ -552,9 +554,20 @@ static int brillo_boot_ab(void)
 		slots_by_priority[1] = 0;
 	}
 
+#ifdef CONFIG_EDISON_ENABLE_EMMC_PWR_ON_WP
 	/* Enable power on write protection on the first 8MB of the booting MMC
-	 * Use this space for protecting GPT header, u-boot, factory and security
-	 * partitions
+	 * Use this space for protecting MBR, GPT header, u-boot and security
+	 * partitions. Additional partitions can be placed under the write
+	 * protected area by using more than one 8MB WP block in the function
+	 * below or by changing the GPT layout of the first 8MB.
+	 * Once Power On Write Protect is enabled for a specific WP block that
+	 * block remains read-only until the next device's power cycle. If this
+	 * option is enabled and you want to write data in the WP block then the
+	 * only way to do it is to enter in FASTBOOT from device's Power Off state.
+	 * You can achieve that by pressing and holding RM button while executing
+	 * a power cycle on the device. Release the RM button once fastboot logs
+	 * appeared in the serial console or more than 5 seconds passed since
+	 * power on.
 	 */
 	mmc = find_mmc_device(dev->dev);
 	if (!mmc)
@@ -562,6 +575,7 @@ static int brillo_boot_ab(void)
 	else
 		if (mmc_usr_power_on_wp(mmc, 0ULL, 8 * 1024 * 1024))
 			printf("WARNING: Cannot enable power on write protection\n");
+#endif
 
 	for (index = 0; index < ARRAY_SIZE(slots_by_priority); index++) {
 		int slot_num = slots_by_priority[index];
