@@ -91,18 +91,35 @@ struct slot_metadata {
 	uint8_t successful_boot : 1;
 } __attribute__((packed));
 
-#define BOOT_CTRL_MAGIC 0x42424100
+#define BOOT_CTRL_MAGIC 0x42414342
 
 struct boot_ctrl {
+	/* NUL terminated active slot suffix. */
+	char slot_suffix[4];
+
 	/* Magic for identification - '\0ABB' (Boot Contrl Magic) */
 	uint32_t magic;
 
 	/* Version of struct. */
 	uint8_t version;
 
-	/* Information about each slot. */
-	struct slot_metadata slot_info[2];
-	uint8_t recovery_tries_remaining;
+	/* Number of slots being managed. */
+	uint8_t nb_slot : 3;
+
+	/* Number of times left attempting to boot recovery. */
+	uint8_t recovery_tries_remaining : 3;
+
+	/* Ensure 4-bytes alignment for slot_info field. */
+	uint8_t reserved0[2];
+
+	/*  Per-slot information.  Up to 4 slots. */
+	struct slot_metadata slot_info[4];
+
+	/* Reserved for further use. */
+	uint8_t reserved1[8];
+
+	/* CRC32 of all 28 bytes preceding this field (little endian  format). */
+	uint32_t crc32_le;
 } __attribute__((packed));
 
 extern bool fb_get_wipe_userdata_response(void);
