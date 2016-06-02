@@ -225,7 +225,11 @@ int board_populate_mbr_boot_code(legacy_mbr *mbr)
 	osip->osii[0].load_address      = 0x01100000;
 	osip->osii[0].start_address     = 0x01101000;
 	osip->osii[0].image_size_blocks = 0x00002800; /* 5 MiB */
+#ifdef CONFIG_OSIP_SIGNED_ATTRIBUTE
+	osip->osii[0].attribute         = 0x0000000e;
+#else
 	osip->osii[0].attribute         = 0x0000000f;
+#endif
 
 	for (i = (uint8_t*)osip; i < ((uint8_t*)osip) + osip->header_size; i++)
 		checksum ^= *i;

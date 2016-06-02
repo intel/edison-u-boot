@@ -46,6 +46,14 @@ config EDISON_ENABLE_EMMC_PWR_ON_WP
 	  the device. Release the RM button once fastboot logs appeared
 	  in the serial console or more than 5 seconds passed since power on.
 
+config OSIP_SIGNED_ATTRIBUTE
+        bool "Authenticate u-boot.bin signature"
+	default "edison"
+	help
+	  For Verified Boot, during provisioning the OSIP attribute has to
+          be "signed" for POS. If this is not enabled, the u-boot.bin that
+          is loaded will not be authenticated, hence breaking root of trust.
+
 config BOARD_SPECIFIC_OPTIONS # dummy
 	def_bool y
 	select INTEL_SCU
