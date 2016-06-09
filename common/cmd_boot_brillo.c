@@ -148,7 +148,7 @@ static void ab_init_default_metadata(struct boot_ctrl *ctrl)
 }
 
 static int ab_read_bootloader_message(block_dev_desc_t *dev,
-		disk_partition_t *misc_part, struct bootloader_message *msg)
+		disk_partition_t *misc_part, struct bootloader_message_ab *msg)
 {
 	void *tmp;
 	lbaint_t blkcnt;
@@ -180,7 +180,7 @@ static int ab_read_bootloader_message(block_dev_desc_t *dev,
 }
 
 static int ab_write_bootloader_message(block_dev_desc_t *dev,
-		disk_partition_t *misc_part, struct bootloader_message *msg)
+		disk_partition_t *misc_part, struct bootloader_message_ab *msg)
 {
 	void *tmp;
 	lbaint_t blkcnt, i;
@@ -207,7 +207,7 @@ static int ab_write_bootloader_message(block_dev_desc_t *dev,
 
 int ab_set_active(int slot_num)
 {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	struct slot_metadata *slot = &metadata->slot_info[slot_num];
 	struct slot_metadata *other_slot = &metadata->slot_info[slot_num ^ 1];
@@ -384,7 +384,7 @@ static void boot_image(void)
 }
 
 static void boot_recovery_image(block_dev_desc_t *dev, struct boot_ctrl *metadata,
-		disk_partition_t *misc_part, struct bootloader_message *message)
+		disk_partition_t *misc_part, struct bootloader_message_ab *message)
 {
 #ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
 	char response[RESPONSE_LEN];
@@ -422,7 +422,7 @@ static void boot_recovery_image(block_dev_desc_t *dev, struct boot_ctrl *metadat
 
 static void brillo_do_recovery(void)
 {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	struct slot_metadata *slot;
 	block_dev_desc_t *dev;
@@ -481,7 +481,7 @@ static void brillo_setup_bootargs(void)
 }
 
 char* get_active_slot(void) {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
@@ -504,7 +504,7 @@ char* get_active_slot(void) {
 }
 
 int get_slot_retry_count(char *suffix) {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
@@ -530,7 +530,7 @@ int get_slot_retry_count(char *suffix) {
 }
 
 bool is_successful_slot (char *suffix) {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
@@ -559,7 +559,7 @@ bool is_successful_slot (char *suffix) {
 }
 
 bool is_unbootable_slot (char *suffix) {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
@@ -608,7 +608,7 @@ static void __mark_slot_as_failed(struct slot_metadata *slot, char *slot_name)
 
 static int brillo_boot_ab(void)
 {
-	struct bootloader_message message;
+	struct bootloader_message_ab message;
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
