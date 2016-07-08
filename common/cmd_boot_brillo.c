@@ -57,7 +57,6 @@
 #include <cmd_boot_brillo.h>
 #include <mmc.h>
 #include <fb_mmc.h>
-#include "bvb/bvb_refimpl.h"
 #include <intel_scu_ipc.h>
 
 #define RESPONSE_LEN (64 + 1)
@@ -260,92 +259,41 @@ int ab_set_active(int slot_num)
  */
 static int load_boot_image(block_dev_desc_t *dev, const char *part_name)
 {
-	BvbBootImageHeader *hdr = (struct BvbBootImageHeader*)CONFIG_SYS_LOAD_ADDR;
-	BvbBootImageHeader *h = NULL;
+	struct andr_img_hdr *hdr = (struct andr_img_hdr*)CONFIG_SYS_LOAD_ADDR;
 	void *rest;
-	int boot_state;
-
-	uint8_t sec_flag = 0;
-
-	BvbVerifyResult verify_result = BVB_VERIFY_RESULT_OK_NOT_SIGNED;
-
 	disk_partition_t boot_part;
-	lbaint_t hdr_blkcnt;
-	lbaint_t kernel_block_start;
-	lbaint_t kernel_block_count;
-	lbaint_t initrd_block_count;
+	lbaint_t hdr_blkcnt, rest_blkcnt;
 
 	if (get_partition_info_efi_by_name(dev, part_name, &boot_part))
 		return -ENOENT;
 
 	hdr_blkcnt = BLOCK_CNT(sizeof(*hdr), dev);
-
-	verify_result = bvb_verify_boot_image(dev, boot_part);
-
 	if (dev->block_read(dev->dev, boot_part.start, hdr_blkcnt,
-			(void*)CONFIG_SYS_LOAD_ADDR) != hdr_blkcnt) {
+			(void*)CONFIG_SYS_LOAD_ADDR) != hdr_blkcnt)
 		return -EIO;
-	}
 
-	h = bvb_malloc(sizeof(BvbBootImageHeader));
-	if (h == NULL) {
-		printf("Error allocating byteswapped header.\n");
-	}
+	if (android_image_check_header(hdr))
+		return -EINVAL;
 
-	bvb_boot_image_header_to_host_byte_order(hdr, h);
+	if (hdr->page_size < 2048 || hdr->page_size > 16384
+			|| hdr->page_size & (hdr->page_size - 1))
+		return -EINVAL;
 
 	rest = ((void*)hdr) + (hdr_blkcnt * dev->blksz);
 
-	kernel_block_start = hdr_blkcnt + BLOCK_CNT(h->authentication_data_block_size +
-						    h->auxilary_data_block_size +
-						    h->kernel_offset, dev);
+	rest_blkcnt = BLOCK_CNT((uint64_t)hdr->page_size
+		+ (uint64_t)ROUND(hdr->kernel_size,  hdr->page_size)
+		+ (uint64_t)ROUND(hdr->ramdisk_size, hdr->page_size)
+		+ (uint64_t)ROUND(hdr->second_size,  hdr->page_size)
+		+ (uint64_t)BOOT_SIGNATURE_MAX_SIZE,
+		dev) - hdr_blkcnt;
 
-	kernel_block_count = BLOCK_CNT(h->kernel_size, dev);
-	initrd_block_count = BLOCK_CNT(h->initrd_size, dev);
+	if (hdr_blkcnt + rest_blkcnt > BLOCK_CNT(BOOT_MAX_IMAGE_SIZE, dev))
+		return -EINVAL;
 
-	if (fb_read_lock_state(&sec_flag)) {
-		sec_flag = 0;
-	}
-
-
-	switch (sec_flag) {
-		case 1:	/* lock state */
-			printf("Device is locked.\n");
-			if(!verify_result)
-				boot_state = BOOT_STATE_GREEN;
-			else
-				boot_state = BOOT_STATE_RED;
-			break;
-		default:
-			printf("Device is unlocked.\n");
-			boot_state = BOOT_STATE_ORANGE;
-			break;
-	}
-
-	switch (boot_state) {
-		case BOOT_STATE_RED:
-			printf("BOOT_STATE_RED\n");
-			break;
-		case BOOT_STATE_GREEN:
-			printf("BOOT_STATE_GREEN\n");
-			break;
-		case BOOT_STATE_ORANGE:
-			printf("BOOT_STATE_ORANGE\n");
-			break;
-		case BOOT_STATE_YELLOW:
-			printf("BOOT_STATE_YELLOW\n");
-			break;
-		default:
-			printf("BOOT_STATE_RED\n");
-			break;
-	}
-
-	if (dev->block_read(dev->dev, boot_part.start + kernel_block_start,
-			kernel_block_count + initrd_block_count, rest) != kernel_block_count + initrd_block_count)
+	if (dev->block_read(dev->dev, boot_part.start + hdr_blkcnt,
+			rest_blkcnt, rest) != rest_blkcnt)
 		return -EIO;
-
-	if(h != NULL)
-		bvb_free(h);
 
 	return 0;
 }
@@ -370,32 +318,26 @@ static void append_to_bootargs(const char *str) {
  */
 static void boot_image(void)
 {
-	struct BvbBootImageHeader *h = (struct BvbBootImageHeader*)CONFIG_SYS_LOAD_ADDR;
-	BvbBootImageHeader *hdr = NULL;
-
+	struct andr_img_hdr *hdr = (struct andr_img_hdr*)CONFIG_SYS_LOAD_ADDR;
 	ulong load_address;
 	char *bootargs = getenv("bootargs");
-	hdr = bvb_malloc(sizeof(BvbBootImageHeader));
-	if (hdr == NULL) {
-		printf("Error allocating byteswapped header.\n");
-	}
-	bvb_boot_image_header_to_host_byte_order((const BvbBootImageHeader *) h, hdr);
 
 	if (bootargs) {
 		bootargs = strdup(bootargs);
-		setenv("bootargs", (const char*)hdr->kernel_cmdline);
+		setenv("bootargs", hdr->cmdline);
 		append_to_bootargs(" ");
 		append_to_bootargs(bootargs);
 		free(bootargs);
 	} else
-		setenv("bootargs", (const char*)hdr->kernel_cmdline);
+		setenv("bootargs", hdr->cmdline);
 
-	struct boot_params *params = load_zimage((void*)CONFIG_SYS_LOAD_ADDR + sizeof(*hdr),
-						 hdr->kernel_size,
-						 &load_address);
+	struct boot_params *params =
+		load_zimage((void*)CONFIG_SYS_LOAD_ADDR + hdr->page_size,
+			hdr->kernel_size, &load_address);
 	setup_zimage(params, ((void*)params) + 0x9000, 0,
-		     (ulong)(((void*)h) + sizeof(*hdr) + hdr->kernel_size),
-		     hdr->initrd_size);
+		(ulong)(((void*)hdr) + ROUND(hdr->kernel_size, hdr->page_size)
+		        + hdr->page_size),
+		hdr->ramdisk_size);
 	boot_linux_kernel((ulong)params, load_address, false);
 }
 
@@ -504,7 +446,6 @@ char* get_active_slot(void) {
 	struct boot_ctrl *metadata = (struct boot_ctrl*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
-
 	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
 
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
@@ -987,6 +928,7 @@ int fb_read_lock_state(uint8_t* lock_state)
 	ret = brillo_fb_read_security_partition(&sec_flag);
 	if (ret)
 		return ret;
+
 	*lock_state = sec_flag.lock;
 	return 0;
 }

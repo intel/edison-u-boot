@@ -57,8 +57,6 @@
 #define CONFIG_ANDROID_BOOT_IMAGE
 #define CONFIG_CMD_BOOT_BRILLO
 #define CONFIG_RANDOM_UUID
-#define CONFIG_FASTBOOT_GVB
-#define CONFIG_SHA256
 
 /*Status LED*/
 #define CONFIG_STATUS_LED               1
