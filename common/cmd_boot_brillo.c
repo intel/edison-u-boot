@@ -85,6 +85,11 @@
 #define BOOT_STATE_ORANGE	2
 #define BOOT_STATE_RED		3
 
+/*Status LED modes*/
+#define MODE_NORMAL 		0x0
+#define MODE_FASTBOOT		0x1
+#define MODE_RECOVERY		0x2
+
 struct slot_metadata {
 	uint8_t priority : 4;
 	uint8_t tries_remaining : 3;
@@ -125,6 +130,24 @@ struct boot_ctrl {
 extern bool fb_get_wipe_userdata_response(void);
 int fb_read_lock_state(uint8_t* lock_state);
 
+
+/*status LED functions*/
+
+static void set_boot_status_led(int mode)
+{
+
+red_led_off();
+blue_led_off();
+green_led_off();
+
+if (MODE_NORMAL == mode)
+	green_led_on();
+else if (MODE_FASTBOOT == mode)
+	blue_led_on();
+else if (MODE_RECOVERY == mode)
+	red_led_on();
+
+}
 /* To be overridden by whatever the board's implementation is of
  * 'adb reboot fastboot' and the like.
  */
@@ -429,6 +452,8 @@ static void brillo_do_recovery(void)
 	disk_partition_t misc_part;
 	int index;
 
+	set_boot_status_led(MODE_RECOVERY);
+
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
 		return;
 
@@ -455,6 +480,7 @@ static void brillo_do_fastboot(void)
 	cmd_tbl_t *fastboot_cmd = find_cmd("fastboot");
 	if (fastboot_cmd) {
 		printf("FASTBOOT MODE...\n");
+		set_boot_status_led(MODE_FASTBOOT);
 		fastboot_cmd->cmd(fastboot_cmd, 0, 2, fastboot_args);
 	}
 }
@@ -752,6 +778,8 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 		brillo_do_reset();
 	}
 
+	/*turn on BOOT(green) LED*/
+	set_boot_status_led(MODE_NORMAL);
 	brillo_setup_bootargs();
 
 	brillo_boot_ab();

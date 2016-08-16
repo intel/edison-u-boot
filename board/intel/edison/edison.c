@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2014-2016 Intel Corporation
+ * SPDX-License-Identifier:     GPL-2.0+ BSD-2-Clause
+ */
+
 #include <common.h>
 #include <dwc3-uboot.h>
 #include <asm/cache.h>

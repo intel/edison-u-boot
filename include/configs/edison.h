@@ -60,6 +60,38 @@
 #define CONFIG_FASTBOOT_GVB
 #define CONFIG_SHA256
 
+/*Status LED*/
+#define CONFIG_STATUS_LED               1
+#define CONFIG_BOARD_SPECIFIC_LED       1
+#define STATUS_LED_GREEN                0x0
+#define STATUS_LED_BLUE                 0x1
+#define STATUS_LED_RED                  0x2
+#define STATUS_LED_BIT                  STATUS_LED_GREEN
+#define STATUS_LED_STATE                STATUS_LED_OFF
+#define STATUS_LED_PERIOD               (CONFIG_SYS_HZ / 2)
+#define STATUS_LED_BIT1                 STATUS_LED_BLUE
+#define STATUS_LED_STATE1               STATUS_LED_OFF
+#define STATUS_LED_PERIOD1              (CONFIG_SYS_HZ / 2)
+#define STATUS_LED_BIT2                 STATUS_LED_RED
+#define STATUS_LED_STATE2               STATUS_LED_OFF
+#define STATUS_LED_PERIOD2              (CONFIG_SYS_HZ / 2)
+
+#define STATUS_LED_BOOT                 STATUS_LED_GREEN
+
+/* LED implementation
+   ----------------------------
+   normal boot      		  --> glow LED_BIT(green LED)
+   fastboot                       --> glow LED_BIT1(blue LED)
+   error condition/recovery boot  --> glow LED_BIT2(red LED)
+*/
+
+#define GPIO_BASE_TANGIER 		0xFF008004
+#define GPDR_REG_OFFSET			0x1
+#define GPSR_REG_OFFSET         	0x2
+#define GPCR_REG_OFFSET			0x3
+#define NGPIO				192
+#define GPIO_REG_ADDR(reg,reg_offset)  (GPIO_BASE_TANGIER + (reg_offset * (NGPIO/32) *4) + (reg*4))
+
 #define CONFIG_FASTBOOT_BUF_ADDR CONFIG_SYS_LOAD_ADDR
 #define CONFIG_FASTBOOT_BUF_SIZE 0x07000000
 
