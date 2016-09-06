@@ -17,7 +17,6 @@
  *#define CONFIG_CMD_DATE
  */
 #define CONFIG_CMD_DIAG
-#define CONFIG_CMD_ELF
 #define CONFIG_CMD_ENV_CALLBACK
 #define CONFIG_CMD_ENV_FLAGS
 /*
