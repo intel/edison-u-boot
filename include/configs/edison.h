@@ -187,7 +187,6 @@
  * CPU Features
  */
 
-#define CONFIG_SYS_X86_TSC_TIMER
 #define CONFIG_SYS_NUM_IRQS			16
 #define CONFIG_PCI
 
