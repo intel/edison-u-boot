@@ -194,6 +194,8 @@
 #define CONFIG_CMD_GETTIME
 #define CONFIG_INTEL_MID
 
+#define PIT_BASE   0x40
+
 /*-----------------------------------------------------------------------
  * Environment
  */
