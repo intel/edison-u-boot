@@ -15,4 +15,13 @@ bool is_successful_slot(char *suffix);
 bool is_unbootable_slot (char *suffix);
 int get_slot_retry_count(char *suffix);
 
+enum bootopts {
+	DEVICE_FASTBOOT = 1, /* RM Key pressed on Edison */
+	BOOTCTL_RECOVERY,
+	ADB_RECOVERY,
+	BOOTCTL_FASTBOOT,
+	ADB_FASTBOOT,
+	DEVICE_REBOOT,
+};
+
 #endif

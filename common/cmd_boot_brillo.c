@@ -58,6 +58,7 @@
 #include <mmc.h>
 #include <fb_mmc.h>
 #include "bvb/bvb_refimpl.h"
+#include <intel_scu_ipc.h>
 
 #define RESPONSE_LEN (64 + 1)
 
@@ -130,28 +131,20 @@ struct boot_ctrl {
 extern bool fb_get_wipe_userdata_response(void);
 int fb_read_lock_state(uint8_t* lock_state);
 
-
 /*status LED functions*/
-
 static void set_boot_status_led(int mode)
 {
+	red_led_off();
+	blue_led_off();
+	green_led_off();
 
-red_led_off();
-blue_led_off();
-green_led_off();
-
-if (MODE_NORMAL == mode)
-	green_led_on();
-else if (MODE_FASTBOOT == mode)
-	blue_led_on();
-else if (MODE_RECOVERY == mode)
-	red_led_on();
-
+	if (MODE_NORMAL == mode)
+		green_led_on();
+	else if (MODE_FASTBOOT == mode)
+		blue_led_on();
+	else if (MODE_RECOVERY == mode)
+		red_led_on();
 }
-/* To be overridden by whatever the board's implementation is of
- * 'adb reboot fastboot' and the like.
- */
-__weak char* board_get_reboot_target(void) { return NULL; }
 
 /* Properly initialise the metadata partition */
 static void ab_init_default_metadata(struct boot_ctrl *ctrl)
@@ -498,12 +491,14 @@ static void brillo_setup_bootargs(void)
 {
 	char serial_arg[56] = "androidboot.serialno=";
 	char *serial;
+	char skipramfs[] = "skip_initramfs";
 
 	serial = getenv("serial#");
 	if (serial) {
 		strncat(serial_arg, serial, sizeof(serial_arg) - strlen(serial_arg) - 1);
 		setenv("bootargs", serial_arg);
 	}
+	setenv("bootargs", skipramfs);
 }
 
 char* get_active_slot(void) {
@@ -760,6 +755,57 @@ static int brillo_boot_ab(void)
 	return -ENOENT;
 }
 
+static int read_boot_reason(void)
+{
+	struct bootloader_message_ab message;
+	block_dev_desc_t *dev;
+	disk_partition_t misc_part;
+	char command[33] = {'\0'};
+	int i, ret;
+	uint8_t target;
+
+	/* RM Key is pressed on Edison Arduino Board */
+	if (!(*(uint8_t*)0xff00800b & 0x20))
+		return DEVICE_FASTBOOT;
+
+	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE))) {
+		printf("WARNING: couldn't get mmc device\n");
+		goto skip_bootctl;
+	}
+
+	if (get_partition_info_efi_by_name(dev, "misc", &misc_part)) {
+		printf("WARNING: misc partition is missing\n");
+		goto skip_bootctl;
+	}
+
+	if ((ret = ab_read_bootloader_message(dev, &misc_part, &message))) {
+		printf("WARNING: couldn't read bootloader message\n");
+		goto skip_bootctl;
+	}
+
+	for (i=0; i<32; i++)
+		sprintf(&command[i], "%c", message.message.command[i]);
+
+skip_bootctl:
+	/* Read reboot reason written in OSNIB */
+	target = *(uint8_t*)0xfffff807;
+	*(uint8_t*)0xfffff807 = 0;
+	*(uint8_t*)0xfffff81f += target;
+	/* Clear OSNIB */
+	intel_scu_ipc_raw_cmd(0xe4, 0, NULL, 0, NULL, 0, 0, 0xffffffff);
+
+	if (!strncmp(command, "boot-recovery", sizeof("boot-recovery")))
+		return BOOTCTL_RECOVERY;
+	else if (target == 0x0c)
+		return ADB_RECOVERY;
+	else if (!strncmp(command, "fastboot", sizeof("fastboot")))
+		return BOOTCTL_FASTBOOT;
+	else if (target == 0x0e)
+		return ADB_FASTBOOT;
+
+	return DEVICE_REBOOT;
+}
+
 static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 		char * const argv[])
 {
@@ -768,14 +814,22 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 	brillo_do_reset();
 	hang();
 #endif
+	int reboot_target = read_boot_reason();
 
-	char *reboot_target = board_get_reboot_target();
-	if (!strcmp(reboot_target, "recovery")) {
-		brillo_do_recovery();
-		goto boot_failed;
-	} else if (!strcmp(reboot_target, "fastboot")) {
-		brillo_do_fastboot();
-		brillo_do_reset();
+	switch (reboot_target) {
+		case BOOTCTL_RECOVERY:
+		case ADB_RECOVERY:
+				brillo_do_recovery();
+				goto boot_failed;
+
+		case DEVICE_FASTBOOT:
+		case BOOTCTL_FASTBOOT:
+		case ADB_FASTBOOT:
+				brillo_do_fastboot();
+				brillo_do_reset();
+
+		case DEVICE_REBOOT:
+				break;
 	}
 
 	/*turn on BOOT(green) LED*/
