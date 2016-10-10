@@ -613,7 +613,6 @@ static void dwc3_core_exit_mode(struct dwc3 *dwc)
 int dwc3_uboot_init(struct dwc3_device *dwc3_dev)
 {
 	struct dwc3		*dwc;
-	struct device		*dev;
 	u8			lpm_nyet_threshold;
 	u8			tx_de_emphasis;
 	u8			hird_threshold;
@@ -622,7 +621,7 @@ int dwc3_uboot_init(struct dwc3_device *dwc3_dev)
 
 	void			*mem;
 
-	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
+	mem = devm_kzalloc(NULL, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem)
 		return -ENOMEM;
 
