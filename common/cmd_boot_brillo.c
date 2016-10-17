@@ -491,14 +491,12 @@ static void brillo_setup_bootargs(void)
 {
 	char serial_arg[56] = "androidboot.serialno=";
 	char *serial;
-	char skipramfs[] = "skip_initramfs";
 
 	serial = getenv("serial#");
 	if (serial) {
 		strncat(serial_arg, serial, sizeof(serial_arg) - strlen(serial_arg) - 1);
 		setenv("bootargs", serial_arg);
 	}
-	setenv("bootargs", skipramfs);
 }
 
 char* get_active_slot(void) {
@@ -679,6 +677,8 @@ static int brillo_boot_ab(void)
 		if (mmc_usr_power_on_wp(mmc, 0ULL, 8 * 1024 * 1024))
 			printf("WARNING: Cannot enable power on write protection\n");
 #endif
+	old_bootargs = strdup(getenv("bootargs"));
+	append_to_bootargs(" skip_initramfs");
 
 	for (index = 0; index < ARRAY_SIZE(slots_by_priority); index++) {
 		int slot_num = slots_by_priority[index];
@@ -708,7 +708,6 @@ static int brillo_boot_ab(void)
 			metadata->recovery_tries_remaining = 7;
 			ab_write_bootloader_message(dev, &misc_part, &message);
 
-			old_bootargs = strdup(getenv("bootargs"));
 			append_to_bootargs(" " BOOT_ARG_SLOT_SUFFIX_STR);
 			append_to_bootargs(suffixes[slot_num]);
 
