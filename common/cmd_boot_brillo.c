@@ -72,10 +72,13 @@
 #define BOOT_ARG_DEVICE_STATE_STR "androidboot.bvb.device_state="
 #define BOOT_ARG_SLOT_CHOSEN_STR "androidboot.bvb.slot_chosen="
 #define BOOT_ARG_FALLBACK_REASON_STR "androidboot.bvb.fallback_reason="
+#define BOOT_ARG_ROOT_STR "root="
 
 #define BOOTCTRL_SUFFIX_A           "_a"
 #define BOOTCTRL_SUFFIX_B           "_b"
 #define BOOTCTRL_SUFFIX_NA			"no suffix available"
+#define BOOTCTRL_SUFFIX_A_PART "/dev/mmcblk0p5"
+#define BOOTCTRL_SUFFIX_B_PART "/dev/mmcblk0p6"
 
 #define BOOT_CONTROL_VERSION    1
 
@@ -574,6 +577,7 @@ static int brillo_boot_ab(void)
 	disk_partition_t misc_part;
 	int ret, index, slots_by_priority[2] = {0, 1};
 	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+	char *root_partitions[] = {BOOTCTRL_SUFFIX_A_PART, BOOTCTRL_SUFFIX_B_PART};
 	char boot_part[8];
 	char *old_bootargs;
 #ifdef CONFIG_EDISON_ENABLE_EMMC_PWR_ON_WP
@@ -651,6 +655,11 @@ static int brillo_boot_ab(void)
 
 			append_to_bootargs(" " BOOT_ARG_SLOT_SUFFIX_STR);
 			append_to_bootargs(suffixes[slot_num]);
+
+			/* add "root" mount partition to cmdline \
+			as per slot suffix */
+			append_to_bootargs(" " BOOT_ARG_ROOT_STR);
+			append_to_bootargs(root_partitions[slot_num]);
 
 			fb_read_lock_state(&lock_state);
 
