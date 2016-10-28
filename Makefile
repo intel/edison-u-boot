@@ -606,6 +606,7 @@ UBOOTINCLUDE    := \
 		-Iinclude \
 		$(if $(KBUILD_SRC), -I$(srctree)/include) \
 		-I$(srctree)/arch/$(ARCH)/include \
+		-I$(srctree)/../bootable/recovery \
 		-include $(srctree)/include/linux/kconfig.h
 
 NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
