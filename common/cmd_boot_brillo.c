@@ -653,7 +653,7 @@ static int read_boot_reason(void)
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
 	char command[33] = {'\0'};
-	int i, ret;
+	int ret;
 	uint8_t target;
 
 	/* RM Key is pressed on Edison Arduino Board */
@@ -675,8 +675,11 @@ static int read_boot_reason(void)
 		goto skip_bootctl;
 	}
 
-	for (i=0; i<32; i++)
-		sprintf(&command[i], "%c", message.message.command[i]);
+	strncpy(command, message.message.command, sizeof(message.message.command));
+	memcpy(message.message.command, 0, sizeof(message.message.command));
+	if (ab_write_bootloader_message(dev, &misc_part, &message)) {
+		printf("WARNING: couldn't write bootloader message\n");
+	}
 
 skip_bootctl:
 	/* Read reboot reason written in OSNIB */
