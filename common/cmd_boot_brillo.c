@@ -55,11 +55,8 @@
 #include <memalign.h>
 #include <cmd_boot_brillo.h>
 #include <mmc.h>
-#include <fb_mmc.h>
 #include <intel_scu_ipc.h>
 #include <bootloader.h>
-
-#define RESPONSE_LEN (64 + 1)
 
 #define BOOT_SIGNATURE_MAX_SIZE 4096
 #define BOOT_MAX_IMAGE_SIZE (32 * 1024 * 1024) /* 32 MiB */
@@ -95,7 +92,6 @@
 
 typedef struct bootloader_control boot_ctrl_t;
 
-extern bool fb_get_wipe_userdata_response(void);
 int fb_read_lock_state(uint8_t* lock_state);
 
 /*status LED functions*/
@@ -312,24 +308,6 @@ static void boot_image(void)
 static void boot_recovery_image(block_dev_desc_t *dev, boot_ctrl_t *metadata,
 		disk_partition_t *misc_part, struct bootloader_message_ab *message)
 {
-#ifdef CONFIG_FASTBOOT_FLASH_MMC_DEV
-	char response[RESPONSE_LEN];
-
-	printf("Entering recovery mode requires erasing userdata\n");
-	printf("Press RM button for YES or FW button for NO\n");
-	if (!fb_get_wipe_userdata_response()) {
-		printf("Cannot enter recovery mode without erasing userdata\n");
-		return;
-	}
-
-	printf("Wiping userdata...\n");
-	response[0] = 0; /* clear response buffer */
-	fb_mmc_erase("userdata", response);
-	if (strncmp(response, "OKAY", 4)) {
-		printf("Error while erasing userdata\n");
-		return;
-	}
-#endif
 	if (metadata->recovery_tries_remaining > 0) {
 		metadata->recovery_tries_remaining--;
 		if (load_boot_image(dev, "recovery")) {
