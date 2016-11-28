@@ -308,9 +308,24 @@ static void boot_image(void)
 static void boot_recovery_image(block_dev_desc_t *dev, boot_ctrl_t *metadata,
 		disk_partition_t *misc_part, struct bootloader_message_ab *message)
 {
+	int slot_num = 0;
+	char boot_part[8];
+	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+	char *root_partitions[] = {BOOTCTRL_SUFFIX_A_PART, BOOTCTRL_SUFFIX_B_PART};
+
+	if (metadata->slot_info[1].priority > metadata->slot_info[0].priority)
+		slot_num = 1;
+
+	append_to_bootargs(" " BOOT_ARG_SLOT_SUFFIX_STR);
+	append_to_bootargs(suffixes[slot_num]);
+	append_to_bootargs(" " BOOT_ARG_ROOT_STR);
+	append_to_bootargs(root_partitions[slot_num]);
+
 	if (metadata->recovery_tries_remaining > 0) {
 		metadata->recovery_tries_remaining--;
-		if (load_boot_image(dev, "recovery")) {
+		snprintf(boot_part, sizeof(boot_part), "boot%s",
+			suffixes[slot_num]);
+		if (load_boot_image(dev, boot_part)) {
 			/* Failed to load, set remaining tries to zero */
 			metadata->recovery_tries_remaining = 0;
 			ab_write_bootloader_message(dev, misc_part, message);
@@ -328,10 +343,8 @@ static void brillo_do_recovery(void)
 {
 	struct bootloader_message_ab message;
 	boot_ctrl_t *metadata = (boot_ctrl_t*)&message.slot_suffix;
-	struct slot_metadata *slot;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
-	int index;
 
 	set_boot_status_led(MODE_RECOVERY);
 
@@ -343,14 +356,6 @@ static void brillo_do_recovery(void)
 
 	if (ab_read_bootloader_message(dev, &misc_part, &message))
 		return;
-
-	/* Slots need to be marked as failed before loading recovery mode */
-	for (index = 0; index < ARRAY_SIZE(metadata->slot_info); index++) {
-		slot = &metadata->slot_info[index];
-		slot->successful_boot = 0;
-		slot->tries_remaining = 0;
-		slot->priority = 0;
-	}
 
 	boot_recovery_image(dev, metadata, &misc_part, &message);
 }
@@ -709,6 +714,7 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 	brillo_do_reset();
 	hang();
 #endif
+	brillo_setup_bootargs();
 	int reboot_target = read_boot_reason();
 
 	switch (reboot_target) {
@@ -729,7 +735,6 @@ static int do_boot_brillo(cmd_tbl_t *cmdtp, int flag, int argc,
 
 	/*turn on BOOT(green) LED*/
 	set_boot_status_led(MODE_NORMAL);
-	brillo_setup_bootargs();
 
 	brillo_boot_ab();
 
