@@ -303,6 +303,7 @@ void fb_mmc_erase(const char *cmd, char *response)
 	disk_partition_t info;
 	lbaint_t blks, blks_start, blks_size, grp_size;
 	struct mmc *mmc = find_mmc_device(CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	void *src;
 
 	if (mmc == NULL) {
 		error("invalid mmc device");
@@ -339,7 +340,14 @@ void fb_mmc_erase(const char *cmd, char *response)
 	printf("Erasing blocks " LBAFU " to " LBAFU " due to alignment\n",
 	       blks_start, blks_start + blks_size);
 
-	blks = dev_desc->block_erase(dev_desc->dev, blks_start, blks_size);
+	/* Erase fails so only erase for block size smaller than 1000000 (512MB) */
+	if (blks_size > 1000000)
+		blks = dev_desc->block_erase(dev_desc->dev, blks_start, blks_size);
+	else {
+		src = calloc(blks_size, info.blksz);
+		blks = dev_desc->block_write(dev_desc->dev, info.start, blks_size, src);
+	}
+
 	if (blks != blks_size) {
 		error("failed erasing from device %d", dev_desc->dev);
 		fastboot_fail("failed erasing from device");
