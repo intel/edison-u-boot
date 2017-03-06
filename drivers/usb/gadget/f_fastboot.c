@@ -958,6 +958,7 @@ static void cb_set_active(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 
+	printf("slot %s is active\n", slot?"_b":"_a");
 	fastboot_tx_write_str("OKAY");
 }
 
