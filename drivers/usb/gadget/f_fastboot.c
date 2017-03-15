@@ -25,7 +25,7 @@
 #include <fb_mmc.h>
 #endif
 
-#define FASTBOOT_VERSION		"0.6"
+#define FASTBOOT_VERSION		"0.7"
 
 #define FASTBOOT_INTERFACE_CLASS	0xff
 #define FASTBOOT_INTERFACE_SUB_CLASS	0x42
