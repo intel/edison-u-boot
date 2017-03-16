@@ -25,7 +25,7 @@
 #include <fb_mmc.h>
 #endif
 
-#define FASTBOOT_VERSION		"0.6"
+#define FASTBOOT_VERSION		"0.7"
 
 #define FASTBOOT_INTERFACE_CLASS	0xff
 #define FASTBOOT_INTERFACE_SUB_CLASS	0x42
@@ -510,7 +510,11 @@ static void getvar_current_slot(char *response, char *cmd, size_t chars_left) {
 }
 static void getvar_slot_suffixes(char *response, char *cmd, size_t chars_left) {
 	strsep(&cmd, ":");
-	snprintf(response, RESPONSE_LEN, "OKAY_a,_b");
+	snprintf(response, RESPONSE_LEN, "OKAYa,b");
+}
+static void getvar_slot_count(char *response, char *cmd, size_t chars_left) {
+	strsep(&cmd, ":");
+	snprintf(response, RESPONSE_LEN, "OKAY2");
 }
 static void getvar_slot_successful(char *response, char *cmd, size_t chars_left) {
 	strsep(&cmd, ":");
@@ -554,7 +558,7 @@ static int __find_update_part_entry(int list_size, const char *name, size_t name
 	for (j = 0; j < list_size; j++) {
 		if (strncmp(list_of_partitions[j].name, name, namelen - 2) == 0) {
 			snprintf(list_of_partitions[j].slots, sizeof(list_of_partitions[j].slots),
-				 "%s _%c", list_of_partitions[j].slots, name[namelen - 1]);
+				 "%s %c", list_of_partitions[j].slots, name[namelen - 1]);
 
 			list_of_partitions[j].slots_num++;
 			return 1;
@@ -598,7 +602,7 @@ static void getvar_all(char *response, char *cmd, size_t chars_left)
 				entry.size = info.size * info.blksz;
 				entry.slots_num = 1;
 
-				snprintf(entry.slots, sizeof(entry.slots), "_%c", info.name[name_length - 1]);
+				snprintf(entry.slots, sizeof(entry.slots), "%c", info.name[name_length - 1]);
 
 				list_of_partitions[list_size] = entry;
 				list_size++;
@@ -711,6 +715,10 @@ static struct get_var_command_t list_of_commands[] = {
 	{
 		"slot-suffixes",
 		getvar_slot_suffixes,
+	},
+	{
+		"slot-count",
+		getvar_slot_count,
 	},
 	{
 		"slot-successful",
@@ -944,9 +952,9 @@ static void cb_set_active(struct usb_ep *ep, struct usb_request *req)
 	unsigned long slot;
 	char *cmd = req->buf;
 	strsep(&cmd, ":");
-	if(strncmp("_a", cmd, 2) == 0) {
+	if(strncmp("a", cmd, 2) == 0) {
 		slot = 0;
-	} else if(strncmp("_b", cmd, 2) == 0) {
+	} else if(strncmp("b", cmd, 2) == 0) {
 		slot = 1;
 	} else {
 		fastboot_tx_write_str("FAILinvalid slot number");
@@ -958,6 +966,7 @@ static void cb_set_active(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 
+	printf("slot %s is active\n", slot?"b":"a");
 	fastboot_tx_write_str("OKAY");
 }
 

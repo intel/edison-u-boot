@@ -71,6 +71,8 @@
 #define BOOT_ARG_FALLBACK_REASON_STR "androidboot.bvb.fallback_reason="
 #define BOOT_ARG_ROOT_STR "root="
 
+#define BOOTCTRL_SLOT_A        "a"
+#define BOOTCTRL_SLOT_B        "b"
 #define BOOTCTRL_SUFFIX_A           "_a"
 #define BOOTCTRL_SUFFIX_B           "_b"
 #define BOOTCTRL_SUFFIX_NA			"no suffix available"
@@ -397,7 +399,7 @@ char* get_active_slot(void) {
 	boot_ctrl_t *metadata = (boot_ctrl_t*)&message.slot_suffix;
 	block_dev_desc_t *dev;
 	disk_partition_t misc_part;
-	char *suffixes[] = { BOOTCTRL_SUFFIX_A, BOOTCTRL_SUFFIX_B };
+	char *slots[] = { BOOTCTRL_SLOT_A, BOOTCTRL_SLOT_B };
 
 	if (!(dev = get_dev("mmc", CONFIG_BRILLO_MMC_BOOT_DEVICE)))
 		return BOOTCTRL_SUFFIX_NA;
@@ -409,9 +411,9 @@ char* get_active_slot(void) {
 		return BOOTCTRL_SUFFIX_NA;
 
 	if(metadata->slot_info[1].priority > metadata->slot_info[0].priority)
-		return suffixes[1];
+		return slots[1];
 
-	return suffixes[0];
+	return slots[0];
 }
 
 int get_slot_retry_count(char *suffix) {
