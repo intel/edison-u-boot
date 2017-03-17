@@ -508,10 +508,6 @@ static void getvar_current_slot(char *response, char *cmd, size_t chars_left) {
 	char* current_slot = get_active_slot();
 	strncat(response, current_slot, chars_left);
 }
-static void getvar_slot_suffixes(char *response, char *cmd, size_t chars_left) {
-	strsep(&cmd, ":");
-	snprintf(response, RESPONSE_LEN, "OKAYa,b");
-}
 static void getvar_slot_count(char *response, char *cmd, size_t chars_left) {
 	strsep(&cmd, ":");
 	snprintf(response, RESPONSE_LEN, "OKAY2");
@@ -711,10 +707,6 @@ static struct get_var_command_t list_of_commands[] = {
 	{
 		"current-slot",
 		getvar_current_slot,
-	},
-	{
-		"slot-suffixes",
-		getvar_slot_suffixes,
 	},
 	{
 		"slot-count",
